@@ -23,5 +23,11 @@ public class AppDBContext : DbContext
         modelBuilder.Entity<Articulo>().ToTable("Articulo");
         modelBuilder.Entity<Reserva>().ToTable("Reserva");
         modelBuilder.Entity<ReservaArticulo>().ToTable("Reserva_Articulo");
+
+        modelBuilder.Entity<Rol>().HasData(
+           new Rol { Id = 1, Nombre = RolesConstantes.Cliente },
+           new Rol { Id = 2, Nombre = RolesConstantes.Administrador },
+           new Rol { Id = 3, Nombre = RolesConstantes.Operador }
+       );
     }
 }
