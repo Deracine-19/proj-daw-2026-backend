@@ -23,7 +23,7 @@ builder.Services.AddDbContext<AppDBContext>(options =>
 
 // 4. Inyección de Dependencias
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 // 5. ---> CONFIGURACIÓN DE AUTENTICACIÓN JWT ACTUALIZADA <---
 // Ahora lee los nombres exactos que tienes en tu appsettings.json

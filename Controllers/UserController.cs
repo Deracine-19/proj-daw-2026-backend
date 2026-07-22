@@ -1,29 +1,31 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.DTOs;
 using proj_daw_2026_backend.Services;
 
 namespace proj_daw_2026_backend.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/usuarios")]
     [ApiController]
     [Authorize]
-    public class UserController : ControllerBase
+    public class UsuarioController : ControllerBase
     {
-        private readonly IUserService _userService;
+        private readonly IUsuarioService _usuarioService;
 
-        public UserController(IUserService userService)
+        public UsuarioController(IUsuarioService usuarioService)
         {
-            _userService = userService;
+            _usuarioService = usuarioService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _userService.GetAll());
+        [Authorize(Roles = RolesConstantes.Administrador)]
+        public async Task<IActionResult> GetAll() => Ok(await _usuarioService.GetAll());
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var usuario = await _userService.GetById(id);
+            var usuario = await _usuarioService.GetById(id);
             return usuario != null ? Ok(usuario) : NotFound();
         }
 
@@ -32,7 +34,7 @@ namespace proj_daw_2026_backend.Controllers
         {
             try
             {
-                return Ok(await _userService.Update(id, dto));
+                return Ok(await _usuarioService.Update(id, dto));
             }
             catch (KeyNotFoundException ex)
             {
