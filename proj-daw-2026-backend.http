@@ -1,0 +1,6 @@
+@proj_daw_2026_backend_HostAddress = http://localhost:5248
+
+GET {{proj_daw_2026_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
