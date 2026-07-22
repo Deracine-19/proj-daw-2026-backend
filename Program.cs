@@ -25,6 +25,7 @@ builder.Services.AddDbContext<AppDBContext>(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<CanchaService>();
+builder.Services.AddScoped<ReservaService>();
 
 // 5. ---> CONFIGURACIÓN DE AUTENTICACIÓN JWT ACTUALIZADA <---
 // Ahora lee los nombres exactos que tienes en tu appsettings.json
