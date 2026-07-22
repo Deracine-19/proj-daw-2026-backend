@@ -7,6 +7,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Consistencia para las rutas (todas en minuscula)
+builder.Services.AddRouting(options => options.LowercaseUrls = true);
+
 // 1. Agregar los Controladores
 builder.Services.AddControllers();
 

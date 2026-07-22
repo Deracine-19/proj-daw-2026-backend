@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using proj_daw_2026_backend.DTOs;
 using proj_daw_2026_backend.Services;
 
-namespace SistemaReservaciones.Backend.Controllers
+namespace proj_daw_2026_backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

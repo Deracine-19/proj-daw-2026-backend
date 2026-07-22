@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.Data;
 
-namespace SistemaReservaciones.Backend.Controllers
+namespace proj_daw_2026_backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -27,7 +27,7 @@ namespace SistemaReservaciones.Backend.Controllers
 
         // GET: api/Cancha/1
         [HttpGet("{id}")]
-        public async Task<ActionResult<Cancha>> GetCancha(int id)
+        public async Task<ActionResult<Cancha>> GetCanchaById(int id)
         {
             var cancha = await _context.Canchas.FindAsync(id);
 
@@ -47,7 +47,7 @@ namespace SistemaReservaciones.Backend.Controllers
             _context.Canchas.Add(cancha);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetCancha), new { id = cancha.Id }, cancha);
+            return CreatedAtAction(nameof(GetCanchaById), new { id = cancha.Id }, cancha);
         }
     }
 }

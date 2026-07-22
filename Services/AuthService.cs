@@ -34,7 +34,7 @@ namespace proj_daw_2026_backend.Services
             {
                 Nombre = dto.Nombre,
                 Email = dto.Email,
-                Password = hashPassword,
+                PasswordHash = hashPassword,
                 RolId = 1 // Clientes por defecto
             };
 
@@ -49,7 +49,7 @@ namespace proj_daw_2026_backend.Services
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-            if (usuario == null || !VerifyPassword(dto.Password, usuario.Password))
+            if (usuario == null || !VerifyPassword(dto.Password, usuario.PasswordHash))
                 throw new UnauthorizedAccessException("Credenciales incorrectas");
 
             // Si la propiedad de navegación no cargó el Rol, lo buscamos explícitamente en _context.Roles
