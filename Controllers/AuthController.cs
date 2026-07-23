@@ -37,6 +37,10 @@ namespace proj_daw_2026_backend.Controllers
             {
                 return Unauthorized("Credenciales inválidas");
             }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(403, new { mensaje = ex.Message });
+            }
         }
     }
 }

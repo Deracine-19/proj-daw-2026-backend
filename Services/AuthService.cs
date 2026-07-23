@@ -52,7 +52,9 @@ namespace proj_daw_2026_backend.Services
             if (usuario == null || !VerifyPassword(dto.Password, usuario.PasswordHash))
                 throw new UnauthorizedAccessException("Credenciales incorrectas");
 
-            // Si la propiedad de navegación no cargó el Rol, lo buscamos explícitamente en _context.Roles
+            if (!usuario.Activo)
+                throw new InvalidOperationException("Tu cuenta está desactivada. Contacta a un administrador.");
+
             if (usuario.Rol == null)
             {
                 usuario.Rol = await _context.Roles.FindAsync(usuario.RolId);
