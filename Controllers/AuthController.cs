@@ -19,7 +19,6 @@ namespace proj_daw_2026_backend.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            // Aquí corregimos el error llamando a Register en lugar de Registrar
             var usuario = await _authService.Register(dto);
             return Created("", new { usuario.Id, usuario.Email });
         }

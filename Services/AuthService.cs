@@ -68,7 +68,6 @@ namespace proj_daw_2026_backend.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_config["JwtSettings:Key"]!);
 
-            // Nos aseguramos de obtener el nombre real del rol
             string nombreRol = usuario.Rol?.Nombre ?? "Cliente";
 
             var tokenDescriptor = new SecurityTokenDescriptor
