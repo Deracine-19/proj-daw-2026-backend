@@ -18,9 +18,9 @@ namespace proj_daw_2026_backend.Controllers
             _reservaService = reservaService;
         }
 
-        // GET: api/reserva (Solo Admin)
+        // GET: api/reserva (Solo Admin y operador)
         [HttpGet]
-        [Authorize(Roles = "Administrador")]
+        [Authorize(Roles = "Administrador,Operador")]
         public async Task<IActionResult> GetAll()
         {
             var reservas = await _reservaService.GetAllReservasAsync();
@@ -104,6 +104,40 @@ namespace proj_daw_2026_backend.Controllers
                 return usuarioId;
             }
             throw new UnauthorizedAccessException("Usuario no válido en el Token.");
+        }
+
+        // PATCH: api/reserva/{id}/pagar (Administrador y Operador)
+        [HttpPatch("{id}/pagar")]
+        [Authorize(Roles = "Administrador,Operador")]
+        public async Task<IActionResult> MarcarComoPagada(int id)
+        {
+            try
+            {
+                var reserva = await _reservaService.MarcarComoPagadaAsync(id);
+                if (reserva == null) return NotFound("Reserva no encontrada.");
+                return Ok(reserva);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        // PATCH: api/reserva/{id}/no-show (Administrador y Operador)
+        [HttpPatch("{id}/no-show")]
+        [Authorize(Roles = "Administrador,Operador")]
+        public async Task<IActionResult> MarcarComoNoShow(int id)
+        {
+            try
+            {
+                var reserva = await _reservaService.MarcarComoNoShowAsync(id);
+                if (reserva == null) return NotFound("Reserva no encontrada.");
+                return Ok(reserva);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

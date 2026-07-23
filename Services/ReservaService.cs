@@ -202,5 +202,48 @@ namespace proj_daw_2026_backend.Services
 
             return codigo;
         }
+
+        // PATCH: Marcar como pagada (check-in del operador/administrador)
+        public async Task<ReservaReadDto?> MarcarComoPagadaAsync(int id)
+        {
+            var reserva = await _context.Reservas.FindAsync(id);
+            if (reserva == null) return null;
+
+            if (reserva.EstadoReserva == "CANCELADA")
+                throw new InvalidOperationException("No se puede marcar como pagada una reserva cancelada.");
+
+            if (reserva.EstadoReserva == "NOSHOW")
+                throw new InvalidOperationException("No se puede marcar como pagada una reserva marcada como No-Show.");
+
+            if (reserva.EstadoPago)
+                throw new InvalidOperationException("Esta reserva ya está marcada como pagada.");
+
+            reserva.EstadoPago = true;
+            await _context.SaveChangesAsync();
+
+            return await GetReservaByIdAsync(id);
+        }
+
+        // PATCH: Marcar como No-Show (el cliente no se presentó)
+        public async Task<ReservaReadDto?> MarcarComoNoShowAsync(int id)
+        {
+            var reserva = await _context.Reservas.FindAsync(id);
+            if (reserva == null) return null;
+
+            if (reserva.EstadoReserva == "CANCELADA")
+                throw new InvalidOperationException("No se puede marcar como No-Show una reserva cancelada.");
+
+            if (reserva.EstadoPago)
+                throw new InvalidOperationException("No se puede marcar como No-Show una reserva ya pagada.");
+
+            var fechaHoraReserva = reserva.Fecha.ToDateTime(TimeOnly.FromTimeSpan(reserva.HoraEntrada));
+            if (fechaHoraReserva > DateTime.Now)
+                throw new InvalidOperationException("No se puede marcar como No-Show una reserva que todavía no ha ocurrido.");
+
+            reserva.EstadoReserva = "NOSHOW";
+            await _context.SaveChangesAsync();
+
+            return await GetReservaByIdAsync(id);
+        }
     }
 }
