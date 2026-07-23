@@ -11,6 +11,8 @@ namespace proj_daw_2026_backend.Services
         Task<List<UsuarioDto>> GetAll();
         Task<UsuarioDto?> GetById(int id);
         Task<UsuarioDto> Update(int id, UsuarioUpdateDto dto);
+        Task<UsuarioDto> CreateUser(UsuarioCreateDto dto);
+        Task<UsuarioDto> ChangeUserStatus(int id);
     }
 
     public class UsuarioService : IUsuarioService
@@ -48,7 +50,45 @@ namespace proj_daw_2026_backend.Services
 
             usuario.Nombre = dto.Nombre;
             usuario.Email = dto.Email;
+            usuario.RolId = dto.RolId;
 
+            await _context.SaveChangesAsync();
+
+            // ============== Algo que dijo Claude ================
+            // El Rol que ya tenías cargado en memoria sigue siendo el VIEJO después de cambiar RolId,
+            // porque EF Core no releé la relación de navegación sola cuando solo cambias el FK.
+            // Sin esta línea, RolNombre en la respuesta mostraría el rol anterior, no el nuevo.
+            await _context.Entry(usuario).Reference(u => u.Rol).LoadAsync();
+
+            return usuario.Adapt<UsuarioDto>();
+        }
+
+        public async Task<UsuarioDto> CreateUser(UsuarioCreateDto dto)
+        {
+            var usuario = new Usuario
+            {
+                Nombre = dto.Nombre,
+                Email = dto.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                RolId = dto.RolId,
+                Activo = true
+            };
+
+            _context.Usuarios.Add(usuario);
+            await _context.SaveChangesAsync();
+            await _context.Entry(usuario).Reference(u => u.Rol).LoadAsync();
+
+            return usuario.Adapt<UsuarioDto>();
+        }
+
+        public async Task<UsuarioDto> ChangeUserStatus(int id)
+        {
+            var usuario = await _context.Usuarios
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.Id == id)
+                ?? throw new KeyNotFoundException("Usuario no encontrado");
+
+            usuario.Activo = !usuario.Activo;
             await _context.SaveChangesAsync();
 
             return usuario.Adapt<UsuarioDto>();

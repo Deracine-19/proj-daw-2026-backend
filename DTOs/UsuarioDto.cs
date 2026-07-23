@@ -7,4 +7,5 @@ public class UsuarioDto
     public string Email { get; set; } = string.Empty;
     public int RolId { get; set; }
     public string RolNombre { get; set; } = string.Empty;
+    public bool Activo { get; set; }
 }

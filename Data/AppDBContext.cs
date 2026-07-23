@@ -19,6 +19,7 @@ public class AppDBContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<Rol>().ToTable("Rol");
         modelBuilder.Entity<Usuario>().ToTable("Usuario");
+        modelBuilder.Entity<Usuario>().Property(u => u.Activo).HasDefaultValue(true);
         modelBuilder.Entity<Cancha>().ToTable("Cancha");
         modelBuilder.Entity<Articulo>().ToTable("Articulo");
         modelBuilder.Entity<Reserva>().ToTable("Reserva");

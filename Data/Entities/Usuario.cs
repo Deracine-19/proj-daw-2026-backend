@@ -14,4 +14,5 @@ public class Usuario
     public int RolId { get; set; }
     public Rol Rol { get; set; } = null!;
     public ICollection<Reserva> Reservas { get; set; } = new List<Reserva>();
+    public bool Activo { get; set; } = true;
 }

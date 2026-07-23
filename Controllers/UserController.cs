@@ -41,5 +41,27 @@ namespace proj_daw_2026_backend.Controllers
                 return NotFound(ex.Message);
             }
         }
+
+        [HttpPost]
+        [Authorize(Roles = RolesConstantes.Administrador)]
+        public async Task<IActionResult> Create([FromBody] UsuarioCreateDto dto)
+        {
+            var usuario = await _usuarioService.CreateUser(dto);
+            return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
+        }
+
+        [HttpPatch("{id}/estado")]
+        [Authorize(Roles = RolesConstantes.Administrador)]
+        public async Task<IActionResult> ChangeUserStatus(int id)
+        {
+            try
+            {
+                return Ok(await _usuarioService.ChangeUserStatus(id));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
     }
 }
