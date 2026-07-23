@@ -12,7 +12,7 @@ namespace proj_daw_2026_backend.Services
         Task<UsuarioDto?> GetById(int id);
         Task<UsuarioDto> Update(int id, UsuarioUpdateDto dto);
         Task<UsuarioDto> CreateUser(UsuarioCreateDto dto);
-        Task<UsuarioDto> ChangeUserStatus(int id);
+        Task<UsuarioDto> ChangeUserStatus(int id, int currentUserId);
     }
 
     public class UsuarioService : IUsuarioService
@@ -81,8 +81,11 @@ namespace proj_daw_2026_backend.Services
             return usuario.Adapt<UsuarioDto>();
         }
 
-        public async Task<UsuarioDto> ChangeUserStatus(int id)
+        public async Task<UsuarioDto> ChangeUserStatus(int id, int currentUserId)
         {
+            if (id == currentUserId)
+                throw new InvalidOperationException("No puedes desactivar tu propia cuenta.");
+
             var usuario = await _context.Usuarios
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Id == id)

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.DTOs;
 using proj_daw_2026_backend.Services;
+using System.Security.Claims;
 
 namespace proj_daw_2026_backend.Controllers
 {
@@ -52,15 +53,21 @@ namespace proj_daw_2026_backend.Controllers
 
         [HttpPatch("{id}/estado")]
         [Authorize(Roles = RolesConstantes.Administrador)]
-        public async Task<IActionResult> ChangeUserStatus(int id)
+        public async Task<IActionResult> CambiarEstado(int id)
         {
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
             try
             {
-                return Ok(await _usuarioService.ChangeUserStatus(id));
+                return Ok(await _usuarioService.ChangeUserStatus(id, currentUserId));
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
     }
