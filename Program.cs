@@ -58,7 +58,18 @@ builder.Services.AddAuthentication(config =>
     };
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
+
 var app = builder.Build();
+
+app.UseCors("FrontendPolicy");
 
 // 6. Configurar el entorno HTTP
 if (app.Environment.IsDevelopment())

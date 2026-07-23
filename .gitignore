@@ -9,7 +9,7 @@
 *.user
 *.userosscache
 *.sln.docstates
-appsettings.json
+appsettings.Development.json
 Migrations/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -402,3 +402,5 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 .DS_Store
+appsettings.Development.json
+/appsettings.Development.json
