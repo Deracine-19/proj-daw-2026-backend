@@ -125,7 +125,7 @@ namespace proj_daw_2026_backend.Services
                 Fecha = dto.Fecha,
                 HoraEntrada = dto.HoraEntrada,
                 HoraSalida = dto.HoraSalida,
-                CodigoReserva = $"RES-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}",
+                CodigoReserva = await GenerarCodigoReservaAsync(),
                 EstadoReserva = "CONFIRMADA",
                 EstadoPago = false,
                 PrecioAplicado = cancha.PrecioHora,
@@ -182,6 +182,25 @@ namespace proj_daw_2026_backend.Services
                     PrecioUnitario = ra.PrecioUnitario
                 }).ToList() ?? new()
             };
+        }
+
+        private const string CaracteresCodigo = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+        private async Task<string> GenerarCodigoReservaAsync()
+        {
+            string codigo;
+            bool existe;
+
+            do
+            {
+                codigo = new string(Enumerable.Range(0, 5)
+                    .Select(_ => CaracteresCodigo[Random.Shared.Next(CaracteresCodigo.Length)])
+                    .ToArray());
+
+                existe = await _context.Reservas.AnyAsync(r => r.CodigoReserva == codigo);
+            } while (existe);
+
+            return codigo;
         }
     }
 }
