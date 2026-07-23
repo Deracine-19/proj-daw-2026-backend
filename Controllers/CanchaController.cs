@@ -69,14 +69,14 @@ namespace proj_daw_2026_backend.Controllers
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> ChangeCanchaStatus(int id)
         {
-            var actualizado = await _canchaService.ChangeCanchaStatusAsync(id);
+            var canchaActualizada = await _canchaService.ChangeCanchaStatusAsync(id);
 
-            if (!actualizado)
+            if (canchaActualizada == null)
             {
                 return NotFound(new { mensaje = "La cancha no existe." });
             }
 
-            return NoContent(); // 204 No Content
+            return Ok(canchaActualizada);
         }
     }
 }
