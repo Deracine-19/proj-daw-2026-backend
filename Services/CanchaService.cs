@@ -60,14 +60,14 @@ namespace proj_daw_2026_backend.Services
         }
 
         // PATCH: Cambiar estado (Activa / Inactiva)
-        public async Task<bool> ChangeCanchaStatusAsync(int id)
+        public async Task<Cancha?> ChangeCanchaStatusAsync(int id)
         {
             var cancha = await _context.Canchas.FindAsync(id);
-            if (cancha == null) return false;
+            if (cancha == null) return null;
 
-            cancha.Estado = !cancha.Estado; // Invierte el valor actual
+            cancha.Estado = !cancha.Estado;
             await _context.SaveChangesAsync();
-            return true;
+            return cancha;
         }
     }
 }
