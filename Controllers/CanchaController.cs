@@ -45,8 +45,15 @@ namespace proj_daw_2026_backend.Controllers
         [Authorize(Roles = "Administrador")]
         public async Task<ActionResult<Cancha>> CreateCancha([FromBody] CanchaDto dto)
         {
-            var nuevaCancha = await _canchaService.CreateCanchaAsync(dto);
-            return CreatedAtAction(nameof(GetCanchaById), new { id = nuevaCancha.Id }, nuevaCancha);
+            try
+            {
+                var nuevaCancha = await _canchaService.CreateCanchaAsync(dto);
+                return CreatedAtAction(nameof(GetCanchaById), new { id = nuevaCancha.Id }, nuevaCancha);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
         }
 
         // PUT: api/Cancha/1 (Solo Administrador)
@@ -54,14 +61,21 @@ namespace proj_daw_2026_backend.Controllers
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> UpdateCancha(int id, [FromBody] CanchaDto dto)
         {
-            var canchaActualizada = await _canchaService.UpdateCanchaAsync(id, dto);
-
-            if (canchaActualizada == null)
+            try
             {
-                return NotFound(new { mensaje = "La cancha a actualizar no existe." });
-            }
+                var canchaActualizada = await _canchaService.UpdateCanchaAsync(id, dto);
 
-            return Ok(canchaActualizada);
+                if (canchaActualizada == null)
+                {
+                    return NotFound(new { mensaje = "La cancha a actualizar no existe." });
+                }
+
+                return Ok(canchaActualizada);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
         }
 
         // PATCH: api/Cancha/1/status (Solo Administrador)

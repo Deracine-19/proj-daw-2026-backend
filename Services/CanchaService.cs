@@ -29,10 +29,12 @@ namespace proj_daw_2026_backend.Services
         // POST: Crear cancha
         public async Task<Cancha> CreateCanchaAsync(CanchaDto dto)
         {
+            ValidarCancha(dto);
+
             var cancha = new Cancha
             {
-                Nombre = dto.Nombre,
-                Descripcion = dto.Descripcion,
+                Nombre = dto.Nombre.Trim(),
+                Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
                 PrecioHora = dto.PrecioHora,
                 Estado = dto.Estado,
                 CantidadJugadores = dto.CantidadJugadores
@@ -49,14 +51,35 @@ namespace proj_daw_2026_backend.Services
             var cancha = await _context.Canchas.FindAsync(id);
             if (cancha == null) return null;
 
-            cancha.Nombre = dto.Nombre;
-            cancha.Descripcion = dto.Descripcion;
+            ValidarCancha(dto);
+
+            cancha.Nombre = dto.Nombre.Trim();
+            cancha.Descripcion = dto.Descripcion?.Trim() ?? string.Empty;
             cancha.PrecioHora = dto.PrecioHora;
             cancha.Estado = dto.Estado;
             cancha.CantidadJugadores = dto.CantidadJugadores;
 
             await _context.SaveChangesAsync();
             return cancha;
+        }
+
+        // Validaciones de negocio compartidas entre creación y edición
+        private static void ValidarCancha(CanchaDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                throw new InvalidOperationException("El nombre de la cancha es obligatorio.");
+
+            if (dto.Nombre.Trim().Length > 100)
+                throw new InvalidOperationException("El nombre de la cancha no puede superar los 100 caracteres.");
+
+            if (dto.Descripcion != null && dto.Descripcion.Length > 500)
+                throw new InvalidOperationException("La descripción no puede superar los 500 caracteres.");
+
+            if (dto.PrecioHora <= 0)
+                throw new InvalidOperationException("El precio por hora debe ser mayor a 0.");
+
+            if (dto.CantidadJugadores <= 0)
+                throw new InvalidOperationException("La cantidad de jugadores debe ser mayor a 0.");
         }
 
         // PATCH: Cambiar estado (Activa / Inactiva)
