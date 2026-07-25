@@ -55,6 +55,14 @@ namespace proj_daw_2026_backend.Controllers
             return Ok(reserva);
         }
 
+        // GET: api/reserva/disponibilidad?canchaId=1&fecha=2026-07-24 (cualquier usuario autenticado)
+        [HttpGet("disponibilidad")]
+        public async Task<IActionResult> GetDisponibilidad([FromQuery] int canchaId, [FromQuery] DateOnly fecha)
+        {
+            var ocupados = await _reservaService.GetHorariosOcupadosAsync(canchaId, fecha);
+            return Ok(ocupados);
+        }
+
         // POST: api/reserva
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateReservaDto dto)

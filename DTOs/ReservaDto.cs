@@ -42,4 +42,12 @@
         public int Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }
     }
+
+    // DTO para exponer los horarios ya ocupados de una cancha en una fecha
+    // (usado por el cliente para calcular disponibilidad antes de reservar)
+    public class HorarioOcupadoDto
+    {
+        public TimeSpan HoraEntrada { get; set; }
+        public TimeSpan HoraSalida { get; set; }
+    }
 }

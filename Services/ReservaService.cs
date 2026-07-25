@@ -56,6 +56,15 @@ namespace proj_daw_2026_backend.Services
             return reservas.Select(MapToReadDto).ToList();
         }
 
+        // GET: Horarios ya ocupados de una cancha en una fecha (para calcular disponibilidad)
+        public async Task<List<HorarioOcupadoDto>> GetHorariosOcupadosAsync(int canchaId, DateOnly fecha)
+        {
+            return await _context.Reservas
+                .Where(r => r.CanchaId == canchaId && r.Fecha == fecha && r.EstadoReserva != "CANCELADA")
+                .Select(r => new HorarioOcupadoDto { HoraEntrada = r.HoraEntrada, HoraSalida = r.HoraSalida })
+                .ToListAsync();
+        }
+
         // POST: Crear Reserva
         public async Task<ReservaReadDto> CreateReservaAsync(int usuarioId, CreateReservaDto dto)
         {
