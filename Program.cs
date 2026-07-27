@@ -26,6 +26,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<CanchaService>();
 builder.Services.AddScoped<ReservaService>();
+builder.Services.AddScoped<IArticuloService, ArticuloService>();
 
 // 5. ---> CONFIGURACIÓN DE AUTENTICACIÓN JWT ACTUALIZADA <---
 // Ahora lee los nombres exactos que tienes en tu appsettings.json
