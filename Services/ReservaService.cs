@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 
@@ -72,6 +73,12 @@ namespace proj_daw_2026_backend.Services
             if (dto.HoraSalida <= dto.HoraEntrada)
             {
                 throw new InvalidOperationException("La hora de salida debe ser posterior a la hora de entrada.");
+            }
+
+            if (dto.HoraEntrada < HorarioNegocioConstantes.HoraApertura || dto.HoraSalida > HorarioNegocioConstantes.HoraCierre)
+            {
+                throw new InvalidOperationException(
+                    $"El horario debe estar entre las {HorarioNegocioConstantes.HoraApertura:hh\\:mm} y las {HorarioNegocioConstantes.HoraCierre:hh\\:mm}.");
             }
 
             // 2. Validar existencia de la cancha
