@@ -21,7 +21,7 @@ namespace proj_daw_2026_backend.Controllers
         // GET: api/reserva (Solo Admin y operador)
         [HttpGet]
         [Authorize(Roles = "Administrador,Operador")]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<IEnumerable<ReservaReadDto>>> GetAll()
         {
             var reservas = await _reservaService.GetAllReservasAsync();
             return Ok(reservas);
@@ -29,7 +29,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // GET: api/reserva/mis-reservas (Cliente / Admin)
         [HttpGet("mis-reservas")]
-        public async Task<IActionResult> GetMisReservas()
+        public async Task<ActionResult<IEnumerable<ReservaReadDto>>> GetMisReservas()
         {
             int usuarioId = GetUserIdFromToken();
             var reservas = await _reservaService.GetReservasByUsuarioIdAsync(usuarioId);
@@ -38,7 +38,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // GET: api/reserva/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<ActionResult<ReservaReadDto>> GetById(int id)
         {
             var reserva = await _reservaService.GetReservaByIdAsync(id);
             if (reserva == null) return NotFound("Reserva no encontrada.");
@@ -57,7 +57,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // GET: api/reserva/disponibilidad?canchaId=1&fecha=2026-07-24 (cualquier usuario autenticado)
         [HttpGet("disponibilidad")]
-        public async Task<IActionResult> GetDisponibilidad([FromQuery] int canchaId, [FromQuery] DateOnly fecha)
+        public async Task<ActionResult<IEnumerable<HorarioOcupadoDto>>> GetDisponibilidad([FromQuery] int canchaId, [FromQuery] DateOnly fecha)
         {
             var ocupados = await _reservaService.GetHorariosOcupadosAsync(canchaId, fecha);
             return Ok(ocupados);
@@ -65,7 +65,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // POST: api/reserva
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateReservaDto dto)
+        public async Task<ActionResult<ReservaReadDto>> Create([FromBody] CreateReservaDto dto)
         {
             try
             {
@@ -97,27 +97,16 @@ namespace proj_daw_2026_backend.Controllers
 
                 return Ok(new { mensaje = "Reserva cancelada exitosamente." });
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
                 return Forbid();
             }
         }
 
-        // Helper para extraer el ID del usuario autenticado mediante el Token JWT
-        private int GetUserIdFromToken()
-        {
-            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(nameIdentifierClaim, out int usuarioId))
-            {
-                return usuarioId;
-            }
-            throw new UnauthorizedAccessException("Usuario no válido en el Token.");
-        }
-
         // PATCH: api/reserva/{id}/pagar (Administrador y Operador)
         [HttpPatch("{id}/pagar")]
         [Authorize(Roles = "Administrador,Operador")]
-        public async Task<IActionResult> MarcarComoPagada(int id)
+        public async Task<ActionResult<ReservaReadDto>> MarcarComoPagada(int id)
         {
             try
             {
@@ -134,7 +123,7 @@ namespace proj_daw_2026_backend.Controllers
         // PATCH: api/reserva/{id}/no-show (Administrador y Operador)
         [HttpPatch("{id}/no-show")]
         [Authorize(Roles = "Administrador,Operador")]
-        public async Task<IActionResult> MarcarComoNoShow(int id)
+        public async Task<ActionResult<ReservaReadDto>> MarcarComoNoShow(int id)
         {
             try
             {
@@ -146,6 +135,17 @@ namespace proj_daw_2026_backend.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        // Helper para extraer el ID del usuario autenticado mediante el Token JWT
+        private int GetUserIdFromToken()
+        {
+            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(nameIdentifierClaim, out int usuarioId))
+            {
+                return usuarioId;
+            }
+            throw new UnauthorizedAccessException("Usuario no válido en el Token.");
         }
     }
 }

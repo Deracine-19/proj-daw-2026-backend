@@ -59,7 +59,7 @@ namespace proj_daw_2026_backend.Controllers
         // PUT: api/Cancha/1 (Solo Administrador)
         [HttpPut("{id}")]
         [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> UpdateCancha(int id, [FromBody] CanchaDto dto)
+        public async Task<ActionResult<Cancha>> UpdateCancha(int id, [FromBody] CanchaDto dto)
         {
             try
             {
@@ -81,7 +81,7 @@ namespace proj_daw_2026_backend.Controllers
         // PATCH: api/Cancha/1/status (Solo Administrador)
         [HttpPatch("{id}/status")]
         [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> ChangeCanchaStatus(int id)
+        public async Task<ActionResult<Cancha>> ChangeCanchaStatus(int id)
         {
             var canchaActualizada = await _canchaService.ChangeCanchaStatusAsync(id);
 

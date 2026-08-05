@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 using proj_daw_2026_backend.Services;
 
@@ -19,7 +20,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // GET: api/articulo (cualquier autenticado)
         [HttpGet]
-        public async Task<IActionResult> GetAllArticulos()
+        public async Task<ActionResult<IEnumerable<Articulo>>> GetAllArticulos()
         {
             var articulos = await _articuloService.GetAllArticulos();
             return Ok(articulos);
@@ -27,7 +28,7 @@ namespace proj_daw_2026_backend.Controllers
 
         // GET: api/articulo/5 (cualquier autenticado)
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetArticuloById(int id)
+        public async Task<ActionResult<Articulo>> GetArticuloById(int id)
         {
             var articulo = await _articuloService.GetArticuloById(id);
             if (articulo == null)
@@ -39,7 +40,7 @@ namespace proj_daw_2026_backend.Controllers
         // POST: api/articulo (Solo Administrador)
         [HttpPost]
         [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateArticulo([FromBody] ArticuloCreateDto dto)
+        public async Task<ActionResult<Articulo>> CreateArticulo([FromBody] ArticuloCreateDto dto)
         {
             try
             {
@@ -55,7 +56,7 @@ namespace proj_daw_2026_backend.Controllers
         // PUT: api/articulo/5 (Solo Administrador)
         [HttpPut("{id}")]
         [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> UpdateArticulo(int id, [FromBody] ArticuloUpdateDto dto)
+        public async Task<ActionResult<Articulo>> UpdateArticulo(int id, [FromBody] ArticuloUpdateDto dto)
         {
             try
             {
@@ -74,7 +75,7 @@ namespace proj_daw_2026_backend.Controllers
         // PATCH: api/articulo/5/status (Solo Administrador)
         [HttpPatch("{id}/status")]
         [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> ChangeArticuloStatus(int id)
+        public async Task<ActionResult<Articulo>> ChangeArticuloStatus(int id)
         {
             var articuloActualizado = await _articuloService.ChangeArticuloStatus(id);
             if (articuloActualizado == null)

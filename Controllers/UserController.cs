@@ -19,19 +19,23 @@ namespace proj_daw_2026_backend.Controllers
             _usuarioService = usuarioService;
         }
 
+        // GET: api/usuarios (Solo Administrador)
         [HttpGet]
         [Authorize(Roles = RolesConstantes.Administrador)]
-        public async Task<IActionResult> GetAll() => Ok(await _usuarioService.GetAll());
+        public async Task<ActionResult<IEnumerable<UsuarioDto>>> GetAll()
+            => Ok(await _usuarioService.GetAll());
 
+        // GET: api/usuarios/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<ActionResult<UsuarioDto>> GetById(int id)
         {
             var usuario = await _usuarioService.GetById(id);
             return usuario != null ? Ok(usuario) : NotFound();
         }
 
+        // PUT: api/usuarios/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UsuarioUpdateDto dto)
+        public async Task<ActionResult<UsuarioDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
         {
             try
             {
@@ -43,17 +47,19 @@ namespace proj_daw_2026_backend.Controllers
             }
         }
 
+        // POST: api/usuarios (Solo Administrador)
         [HttpPost]
         [Authorize(Roles = RolesConstantes.Administrador)]
-        public async Task<IActionResult> Create([FromBody] UsuarioCreateDto dto)
+        public async Task<ActionResult<UsuarioDto>> Create([FromBody] UsuarioCreateDto dto)
         {
             var usuario = await _usuarioService.CreateUser(dto);
             return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
         }
 
+        // PATCH: api/usuarios/5/estado (Solo Administrador)
         [HttpPatch("{id}/estado")]
         [Authorize(Roles = RolesConstantes.Administrador)]
-        public async Task<IActionResult> CambiarEstado(int id)
+        public async Task<ActionResult<UsuarioDto>> CambiarEstado(int id)
         {
             var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

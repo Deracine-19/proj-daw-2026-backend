@@ -15,22 +15,29 @@ namespace proj_daw_2026_backend.Controllers
             _authService = authService;
         }
 
-        // + Register(dto)
+        // POST: api/auth/register
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+        public async Task<ActionResult<RegisterResponseDto>> Register([FromBody] RegisterDto dto)
         {
             var usuario = await _authService.Register(dto);
-            return Created("", new { usuario.Id, usuario.Email });
+
+            var respuesta = new RegisterResponseDto
+            {
+                Id = usuario.Id,
+                Email = usuario.Email
+            };
+
+            return Created("", respuesta);
         }
 
-        // + Login(dto)
+        // POST: api/auth/login
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginDto dto)
         {
             try
             {
                 var token = await _authService.Login(dto);
-                return Ok(new { Token = token });
+                return Ok(new LoginResponseDto { Token = token });
             }
             catch (UnauthorizedAccessException)
             {
@@ -41,5 +48,17 @@ namespace proj_daw_2026_backend.Controllers
                 return StatusCode(403, new { mensaje = ex.Message });
             }
         }
+    }
+
+    // DTOs auxiliares para documentar las respuestas en Swagger
+    public class LoginResponseDto
+    {
+        public string Token { get; set; } = string.Empty;
+    }
+
+    public class RegisterResponseDto
+    {
+        public int Id { get; set; }
+        public string Email { get; set; } = string.Empty;
     }
 }

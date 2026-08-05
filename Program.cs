@@ -1,21 +1,52 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models; // <-- 1. Importante para la configuración de Swagger JWT
 using proj_daw_2026_backend.Services;
 using proj_daw_2026_backend.Data.Entities;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Consistencia para las rutas (todas en minuscula)
+// Consistencia para las rutas (todas en minúscula)
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 // 1. Agregar los Controladores
 builder.Services.AddControllers();
 
-// 2. Configurar Swagger para las pruebas
+// 2. Configurar Swagger con soporte para JWT
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "proj_daw_2026_backend", Version = "v1" });
+
+    // Definición del esquema de seguridad para Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Ingresa el token JWT obtenido en el login."
+    });
+
+    // Aplicar el esquema de seguridad globalmente a la interfaz de Swagger
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // 3. Conexión a PostgreSQL
 builder.Services.AddDbContext<AppDBContext>(options =>
@@ -28,12 +59,10 @@ builder.Services.AddScoped<CanchaService>();
 builder.Services.AddScoped<ReservaService>();
 builder.Services.AddScoped<IArticuloService, ArticuloService>();
 
-// 5. ---> CONFIGURACIÓN DE AUTENTICACIÓN JWT ACTUALIZADA <---
-// Ahora lee los nombres exactos que tienes en tu appsettings.json
+// 5. CONFIGURACIÓN DE AUTENTICACIÓN JWT
 var jwtKey = builder.Configuration["JwtSettings:Key"];
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
 var jwtAudience = builder.Configuration["JwtSettings:Audience"];
-
 var key = Encoding.UTF8.GetBytes(jwtKey!);
 
 builder.Services.AddAuthentication(config =>
@@ -49,11 +78,8 @@ builder.Services.AddAuthentication(config =>
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-
-        // Habilitamos la validación porque ya los tienes en tu JSON
         ValidateIssuer = true,
         ValidIssuer = jwtIssuer,
-
         ValidateAudience = true,
         ValidAudience = jwtAudience
     };
@@ -66,7 +92,6 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
-
 
 var app = builder.Build();
 
@@ -81,7 +106,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 7. ---> MIDDLEWARES DE SEGURIDAD <---
+// 7. MIDDLEWARES DE SEGURIDAD
 app.UseAuthentication();
 app.UseAuthorization();
 
