@@ -9,11 +9,13 @@ namespace proj_daw_2026_backend.Services
     {
         private readonly AppDBContext _context;
         private readonly EmailService _emailService;
+        private readonly ILogger<ReservaService> _logger;
 
-        public ReservaService(AppDBContext context, EmailService emailService)
+        public ReservaService(AppDBContext context, EmailService emailService, ILogger<ReservaService> logger)
         {
             _context = context;
             _emailService = emailService;
+            _logger = logger;
         }
 
         // GET: Obtener todas las reservas
@@ -170,7 +172,7 @@ namespace proj_daw_2026_backend.Services
                     foreach (var item in reservaArticulos)
                     {
                         var art = await _context.Articulos.FindAsync(item.ArticuloId);
-                        articulosHtml += $"<li><strong>{art?.Nombre ?? "Artículo"}</strong> x{item.Cantidad} - ${item.PrecioUnitario * item.Cantidad}</li>";
+                        articulosHtml += $"<li><strong>{art?.Nombre ?? "Artículo"}</strong> x{item.Cantidad} - L {item.PrecioUnitario * item.Cantidad:N2}</li>";
                     }
                     articulosHtml += "</ul>";
                 }
@@ -187,12 +189,27 @@ namespace proj_daw_2026_backend.Services
                         <p><strong>Horario:</strong> {reserva.HoraEntrada:hh\:mm} - {reserva.HoraSalida:hh\:mm}</p>
                         {articulosHtml}
                         <hr style='border: none; border-top: 1px solid #eee;' />
-                        <h3 style='color: #2c3e50;'>Total a Pagar: ${reserva.Total}</h3>
+                        <h3 style='color: #2c3e50;'>Total a Pagar: L {reserva.Total:N2}</h3>
                         <p style='font-size: 12px; color: #7f8c8d; text-align: center; margin-top: 20px;'>¡Gracias por confiar en nuestros servicios!</p>
                     </div>";
 
-                // Se ejecuta en segundo plano para no congelar la respuesta HTTP
-                _ = Task.Run(() => _emailService.SendEmailAsync(usuario.Email, $"Confirmación de Reserva #{reserva.CodigoReserva}", mensajeHtml));
+                // Se ejecuta en segundo plano para no congelar la respuesta HTTP. Envuelto en
+                // try/catch porque una excepción sin observar dentro de un Task.Run desatendido
+                // desaparece en silencio, sin esto, un fallo de SMTP (credenciales, timeout, etc.)
+                // no dejaría como de debuggaerla en ningún lado.
+                var destinatario = usuario.Email;
+                var asunto = $"Confirmación de Reserva #{reserva.CodigoReserva}";
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendEmailAsync(destinatario, asunto, mensajeHtml);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "No se pudo enviar el correo de confirmación de la reserva {CodigoReserva} a {Email}", reserva.CodigoReserva, destinatario);
+                    }
+                });
             }
 
             return (await GetReservaByIdAsync(reserva.Id))!;
