@@ -15,4 +15,8 @@ public class Usuario
     public Rol Rol { get; set; } = null!;
     public ICollection<Reserva> Reservas { get; set; } = new List<Reserva>();
     public bool Activo { get; set; } = true;
+
+    // Nuevos campos para la recuperación de contraseña
+    public bool RequiereCambioPassword { get; set; } = false;
+    public string? PasswordAnteriorHash { get; set; }
 }

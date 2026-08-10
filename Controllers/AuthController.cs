@@ -48,6 +48,31 @@ namespace proj_daw_2026_backend.Controllers
                 return StatusCode(403, new { mensaje = ex.Message });
             }
         }
+
+        // POST: api/auth/forgot-password
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+        {
+            await _authService.ForgotPassword(dto);
+
+            // Por seguridad (estándar OWASP), siempre respondemos OK aunque el email no exista,
+            // para evitar que atacantes descubran qué correos están registrados.
+            return Ok(new { mensaje = "Si el correo existe en nuestro sistema, hemos enviado una contraseña temporal." });
+        }
+
+        // POST: api/auth/reset-password
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            var (exito, mensaje) = await _authService.ResetPassword(dto);
+
+            if (!exito)
+            {
+                return BadRequest(new { mensaje });
+            }
+
+            return Ok(new { mensaje });
+        }
     }
 
     // DTOs auxiliares para documentar las respuestas en Swagger
