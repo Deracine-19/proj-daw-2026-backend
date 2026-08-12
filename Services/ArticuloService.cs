@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 
@@ -44,7 +43,8 @@ namespace proj_daw_2026_backend.Services
                 Nombre = dto.Nombre.Trim(),
                 Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
                 Precio = dto.Precio,
-                Estado = true
+                Estado = true,
+                ImagenUrl = dto.ImagenUrl?.Trim() 
             };
 
             _context.Articulos.Add(nuevoArticulo);
@@ -63,6 +63,7 @@ namespace proj_daw_2026_backend.Services
             articulo.Descripcion = dto.Descripcion?.Trim() ?? string.Empty;
             articulo.Precio = dto.Precio;
             articulo.Estado = dto.Estado;
+            articulo.ImagenUrl = dto.ImagenUrl?.Trim(); // Agregado
 
             await _context.SaveChangesAsync();
             return MapToReadDto(articulo);
@@ -100,7 +101,8 @@ namespace proj_daw_2026_backend.Services
             Nombre = a.Nombre,
             Descripcion = a.Descripcion,
             Precio = a.Precio,
-            Estado = a.Estado
+            Estado = a.Estado,
+            ImagenUrl = a.ImagenUrl 
         };
     }
 }

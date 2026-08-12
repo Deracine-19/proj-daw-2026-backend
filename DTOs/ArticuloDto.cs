@@ -5,6 +5,7 @@
         public string Nombre { get; set; } = string.Empty;
         public string Descripcion { get; set; } = string.Empty;
         public decimal Precio { get; set; }
+        public string? ImagenUrl { get; set; } 
     }
 
     public class ArticuloUpdateDto
@@ -13,6 +14,7 @@
         public string Descripcion { get; set; } = string.Empty;
         public decimal Precio { get; set; }
         public bool Estado { get; set; }
+        public string? ImagenUrl { get; set; } 
     }
 
     public class ArticuloReadDto
@@ -22,5 +24,6 @@
         public string Descripcion { get; set; } = string.Empty;
         public decimal Precio { get; set; }
         public bool Estado { get; set; }
+        public string? ImagenUrl { get; set; } 
     }
 }

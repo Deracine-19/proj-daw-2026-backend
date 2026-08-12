@@ -8,5 +8,7 @@
         public decimal Precio { get; set; }
         public bool Estado { get; set; }
         public ICollection<ReservaArticulo> ReservaArticulos { get; set; } = new List<ReservaArticulo>();
+
+        public string? ImagenUrl { get; set; }
     }
 }
