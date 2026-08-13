@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 
@@ -6,7 +7,7 @@ namespace proj_daw_2026_backend.Services
 {
     public interface IArticuloService
     {
-        Task<List<ArticuloReadDto>> GetAllArticulos();
+        Task<PagedResultDto<ArticuloReadDto>> GetAllArticulos(int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion);
         Task<ArticuloReadDto?> GetArticuloById(int id);
         Task<ArticuloReadDto> CreateArticulo(ArticuloCreateDto dto);
         Task<ArticuloReadDto?> UpdateArticulo(int id, ArticuloUpdateDto dto);
@@ -22,10 +23,42 @@ namespace proj_daw_2026_backend.Services
             _context = context;
         }
 
-        public async Task<List<ArticuloReadDto>> GetAllArticulos()
+        public async Task<PagedResultDto<ArticuloReadDto>> GetAllArticulos(
+            int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion)
         {
-            var articulos = await _context.Articulos.ToListAsync();
-            return articulos.Select(MapToReadDto).ToList();
+            (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
+
+            var query = _context.Articulos.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(a =>
+                    a.Nombre.ToLower().Contains(termino) ||
+                    a.Descripcion.ToLower().Contains(termino));
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            query = ordenarPor?.ToLower() switch
+            {
+                "precio" => desc ? query.OrderByDescending(a => a.Precio) : query.OrderBy(a => a.Precio),
+                "estado" => desc ? query.OrderByDescending(a => a.Estado) : query.OrderBy(a => a.Estado),
+                _ => desc ? query.OrderByDescending(a => a.Nombre) : query.OrderBy(a => a.Nombre),
+            };
+
+            var totalCount = await query.CountAsync();
+            var articulos = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResultDto<ArticuloReadDto>
+            {
+                Items = articulos.Select(MapToReadDto).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<ArticuloReadDto?> GetArticuloById(int id)
@@ -36,7 +69,7 @@ namespace proj_daw_2026_backend.Services
 
         public async Task<ArticuloReadDto> CreateArticulo(ArticuloCreateDto dto)
         {
-            ValidarArticulo(dto.Nombre, dto.Descripcion, dto.Precio);
+            ValidarArticulo(dto.Nombre, dto.Descripcion, dto.Precio, dto.ImagenBase64);
 
             var nuevoArticulo = new Articulo
             {
@@ -44,7 +77,7 @@ namespace proj_daw_2026_backend.Services
                 Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
                 Precio = dto.Precio,
                 Estado = true,
-                ImagenUrl = dto.ImagenUrl?.Trim() 
+                ImagenBase64 = dto.ImagenBase64
             };
 
             _context.Articulos.Add(nuevoArticulo);
@@ -57,13 +90,13 @@ namespace proj_daw_2026_backend.Services
             var articulo = await _context.Articulos.FindAsync(id);
             if (articulo == null) return null;
 
-            ValidarArticulo(dto.Nombre, dto.Descripcion, dto.Precio);
+            ValidarArticulo(dto.Nombre, dto.Descripcion, dto.Precio, dto.ImagenBase64);
 
             articulo.Nombre = dto.Nombre.Trim();
             articulo.Descripcion = dto.Descripcion?.Trim() ?? string.Empty;
             articulo.Precio = dto.Precio;
             articulo.Estado = dto.Estado;
-            articulo.ImagenUrl = dto.ImagenUrl?.Trim(); // Agregado
+            articulo.ImagenBase64 = dto.ImagenBase64;
 
             await _context.SaveChangesAsync();
             return MapToReadDto(articulo);
@@ -80,7 +113,7 @@ namespace proj_daw_2026_backend.Services
         }
 
         // Validaciones de negocio compartidas entre creación y edición
-        private static void ValidarArticulo(string nombre, string? descripcion, decimal precio)
+        private static void ValidarArticulo(string nombre, string? descripcion, decimal precio, string? imagenBase64)
         {
             if (string.IsNullOrWhiteSpace(nombre))
                 throw new InvalidOperationException("El nombre del artículo es obligatorio.");
@@ -93,6 +126,8 @@ namespace proj_daw_2026_backend.Services
 
             if (precio <= 0)
                 throw new InvalidOperationException("El precio debe ser mayor a 0.");
+
+            ImagenValidator.Validar(imagenBase64);
         }
 
         private static ArticuloReadDto MapToReadDto(Articulo a) => new()
@@ -102,7 +137,7 @@ namespace proj_daw_2026_backend.Services
             Descripcion = a.Descripcion,
             Precio = a.Precio,
             Estado = a.Estado,
-            ImagenUrl = a.ImagenUrl 
+            ImagenBase64 = a.ImagenBase64
         };
     }
 }

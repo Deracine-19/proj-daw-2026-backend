@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.DTOs;
@@ -14,20 +14,55 @@ namespace proj_daw_2026_backend.Services
             _context = context;
         }
 
-        // GET: Obtener todas las canchas
-        public async Task<List<Cancha>> GetAllCanchasAsync()
+        // GET: Obtener canchas paginadas, con búsqueda y orden opcionales
+        public async Task<PagedResultDto<CanchaReadDto>> GetAllCanchasAsync(
+            int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion)
         {
-            return await _context.Canchas.ToListAsync();
+            (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
+
+            var query = _context.Canchas.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(c =>
+                    c.Nombre.ToLower().Contains(termino) ||
+                    c.Descripcion.ToLower().Contains(termino));
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            query = ordenarPor?.ToLower() switch
+            {
+                "precio" or "preciohora" => desc ? query.OrderByDescending(c => c.PrecioHora) : query.OrderBy(c => c.PrecioHora),
+                "jugadores" or "cantidadjugadores" => desc ? query.OrderByDescending(c => c.CantidadJugadores) : query.OrderBy(c => c.CantidadJugadores),
+                "estado" => desc ? query.OrderByDescending(c => c.Estado) : query.OrderBy(c => c.Estado),
+                _ => desc ? query.OrderByDescending(c => c.Nombre) : query.OrderBy(c => c.Nombre),
+            };
+
+            var totalCount = await query.CountAsync();
+            var canchas = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResultDto<CanchaReadDto>
+            {
+                Items = canchas.Select(MapToReadDto).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         // GET: Obtener cancha por ID
-        public async Task<Cancha?> GetCanchaByIdAsync(int id)
+        public async Task<CanchaReadDto?> GetCanchaByIdAsync(int id)
         {
-            return await _context.Canchas.FindAsync(id);
+            var cancha = await _context.Canchas.FindAsync(id);
+            return cancha == null ? null : MapToReadDto(cancha);
         }
 
         // POST: Crear cancha
-        public async Task<Cancha> CreateCanchaAsync(CanchaDto dto)
+        public async Task<CanchaReadDto> CreateCanchaAsync(CanchaDto dto)
         {
             ValidarCancha(dto);
 
@@ -37,16 +72,17 @@ namespace proj_daw_2026_backend.Services
                 Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
                 PrecioHora = dto.PrecioHora,
                 Estado = dto.Estado,
-                CantidadJugadores = dto.CantidadJugadores
+                CantidadJugadores = dto.CantidadJugadores,
+                ImagenBase64 = dto.ImagenBase64
             };
 
             _context.Canchas.Add(cancha);
             await _context.SaveChangesAsync();
-            return cancha;
+            return MapToReadDto(cancha);
         }
 
         // PUT: Actualizar cancha
-        public async Task<Cancha?> UpdateCanchaAsync(int id, CanchaDto dto)
+        public async Task<CanchaReadDto?> UpdateCanchaAsync(int id, CanchaDto dto)
         {
             var cancha = await _context.Canchas.FindAsync(id);
             if (cancha == null) return null;
@@ -58,9 +94,10 @@ namespace proj_daw_2026_backend.Services
             cancha.PrecioHora = dto.PrecioHora;
             cancha.Estado = dto.Estado;
             cancha.CantidadJugadores = dto.CantidadJugadores;
+            cancha.ImagenBase64 = dto.ImagenBase64;
 
             await _context.SaveChangesAsync();
-            return cancha;
+            return MapToReadDto(cancha);
         }
 
         // Validaciones de negocio compartidas entre creación y edición
@@ -80,18 +117,30 @@ namespace proj_daw_2026_backend.Services
 
             if (dto.CantidadJugadores <= 0)
                 throw new InvalidOperationException("La cantidad de jugadores debe ser mayor a 0.");
+
+            ImagenValidator.Validar(dto.ImagenBase64);
         }
 
         // PATCH: Cambiar estado (Activa / Inactiva)
-        public async Task<Cancha?> ChangeCanchaStatusAsync(int id)
+        public async Task<CanchaReadDto?> ChangeCanchaStatusAsync(int id)
         {
             var cancha = await _context.Canchas.FindAsync(id);
             if (cancha == null) return null;
 
             cancha.Estado = !cancha.Estado;
             await _context.SaveChangesAsync();
-            return cancha;
+            return MapToReadDto(cancha);
         }
+
+        private static CanchaReadDto MapToReadDto(Cancha c) => new()
+        {
+            Id = c.Id,
+            Nombre = c.Nombre,
+            Descripcion = c.Descripcion,
+            PrecioHora = c.PrecioHora,
+            Estado = c.Estado,
+            CantidadJugadores = c.CantidadJugadores,
+            ImagenBase64 = c.ImagenBase64
+        };
     }
 }
-

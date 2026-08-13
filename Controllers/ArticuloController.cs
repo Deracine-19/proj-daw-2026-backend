@@ -18,11 +18,16 @@ namespace proj_daw_2026_backend.Controllers
             _articuloService = articuloService;
         }
 
-        // GET: api/articulo (cualquier autenticado)
+        // GET: api/articulo?page=1&pageSize=20&busqueda=&ordenarPor=&ordenDireccion= (cualquier autenticado)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Articulo>>> GetAllArticulos()
+        public async Task<ActionResult<PagedResultDto<ArticuloReadDto>>> GetAllArticulos(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? busqueda = null,
+            [FromQuery] string? ordenarPor = null,
+            [FromQuery] string? ordenDireccion = null)
         {
-            var articulos = await _articuloService.GetAllArticulos();
+            var articulos = await _articuloService.GetAllArticulos(page, pageSize, busqueda, ordenarPor, ordenDireccion);
             return Ok(articulos);
         }
 

@@ -18,12 +18,22 @@ namespace proj_daw_2026_backend.Controllers
             _reservaService = reservaService;
         }
 
-        // GET: api/reserva (Solo Admin y operador)
+        // GET: api/reserva?page=1&pageSize=20&busqueda=&ordenarPor=&ordenDireccion=&fechaInicio=&fechaFin=&estado=
+        // (Solo Admin y operador). Sin fechaInicio/fechaFin, devuelve solo las reservas de HOY.
         [HttpGet]
         [Authorize(Roles = "Administrador,Operador")]
-        public async Task<ActionResult<IEnumerable<ReservaReadDto>>> GetAll()
+        public async Task<ActionResult<PagedResultDto<ReservaReadDto>>> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? busqueda = null,
+            [FromQuery] string? ordenarPor = null,
+            [FromQuery] string? ordenDireccion = null,
+            [FromQuery] DateOnly? fechaInicio = null,
+            [FromQuery] DateOnly? fechaFin = null,
+            [FromQuery] string? estado = null)
         {
-            var reservas = await _reservaService.GetAllReservasAsync();
+            var reservas = await _reservaService.GetAllReservasAsync(
+                page, pageSize, busqueda, ordenarPor, ordenDireccion, fechaInicio, fechaFin, estado);
             return Ok(reservas);
         }
 

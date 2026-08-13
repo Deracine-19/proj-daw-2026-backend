@@ -8,7 +8,7 @@ namespace proj_daw_2026_backend.Services
 {
     public interface IUsuarioService
     {
-        Task<List<UsuarioDto>> GetAll();
+        Task<PagedResultDto<UsuarioDto>> GetAll(int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion, string? rol, bool? activo);
         Task<UsuarioDto?> GetById(int id);
         Task<UsuarioDto> Update(int id, UsuarioUpdateDto dto);
         Task<UsuarioDto> CreateUser(UsuarioCreateDto dto);
@@ -24,12 +24,52 @@ namespace proj_daw_2026_backend.Services
             _context = context;
         }
 
-        public async Task<List<UsuarioDto>> GetAll()
+        public async Task<PagedResultDto<UsuarioDto>> GetAll(
+            int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion, string? rol, bool? activo)
         {
-            return await _context.Usuarios
-                .Include(u => u.Rol)
+            (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
+
+            var query = _context.Usuarios.Include(u => u.Rol).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(u => u.Nombre.ToLower().Contains(termino) || u.Email.ToLower().Contains(termino));
+            }
+
+            if (!string.IsNullOrWhiteSpace(rol))
+            {
+                query = query.Where(u => u.Rol.Nombre == rol);
+            }
+
+            if (activo.HasValue)
+            {
+                query = query.Where(u => u.Activo == activo.Value);
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            query = ordenarPor?.ToLower() switch
+            {
+                "email" => desc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+                "rol" or "rolnombre" => desc ? query.OrderByDescending(u => u.Rol.Nombre) : query.OrderBy(u => u.Rol.Nombre),
+                "activo" or "estado" => desc ? query.OrderByDescending(u => u.Activo) : query.OrderBy(u => u.Activo),
+                _ => desc ? query.OrderByDescending(u => u.Nombre) : query.OrderBy(u => u.Nombre),
+            };
+
+            var totalCount = await query.CountAsync();
+            var usuarios = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ProjectToType<UsuarioDto>()
                 .ToListAsync();
+
+            return new PagedResultDto<UsuarioDto>
+            {
+                Items = usuarios,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<UsuarioDto?> GetById(int id)

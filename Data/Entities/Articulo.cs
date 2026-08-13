@@ -9,6 +9,8 @@
         public bool Estado { get; set; }
         public ICollection<ReservaArticulo> ReservaArticulos { get; set; } = new List<ReservaArticulo>();
 
-        public string? ImagenUrl { get; set; }
+        // Data URI completo ("data:image/png;base64,....") — se guarda directo en la BD
+        // para no depender de un bucket/almacenamiento externo.
+        public string? ImagenBase64 { get; set; }
     }
 }

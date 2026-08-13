@@ -19,11 +19,18 @@ namespace proj_daw_2026_backend.Controllers
             _usuarioService = usuarioService;
         }
 
-        // GET: api/usuarios (Solo Administrador)
+        // GET: api/usuarios?page=1&pageSize=20&busqueda=&ordenarPor=&ordenDireccion=&rol=&activo= (Solo Administrador)
         [HttpGet]
         [Authorize(Roles = RolesConstantes.Administrador)]
-        public async Task<ActionResult<IEnumerable<UsuarioDto>>> GetAll()
-            => Ok(await _usuarioService.GetAll());
+        public async Task<ActionResult<PagedResultDto<UsuarioDto>>> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? busqueda = null,
+            [FromQuery] string? ordenarPor = null,
+            [FromQuery] string? ordenDireccion = null,
+            [FromQuery] string? rol = null,
+            [FromQuery] bool? activo = null)
+            => Ok(await _usuarioService.GetAll(page, pageSize, busqueda, ordenarPor, ordenDireccion, rol, activo));
 
         // GET: api/usuarios/5
         [HttpGet("{id}")]

@@ -18,19 +18,68 @@ namespace proj_daw_2026_backend.Services
             _logger = logger;
         }
 
-        // GET: Obtener todas las reservas
-        public async Task<List<ReservaReadDto>> GetAllReservasAsync()
+        // GET: Obtener reservas paginadas (panel de administrador). Por defecto solo trae las de
+        // HOY — sin fechaInicio/fechaFin explícitos, devolver la tabla completa se vuelve lento
+        // en cuanto hay muchos registros.
+        public async Task<PagedResultDto<ReservaReadDto>> GetAllReservasAsync(
+            int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion,
+            DateOnly? fechaInicio, DateOnly? fechaFin, string? estado)
         {
-            var reservas = await _context.Reservas
+            (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
+
+            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            var desde = fechaInicio ?? hoy;
+            var hasta = fechaFin ?? hoy;
+            if (hasta < desde) (desde, hasta) = (hasta, desde);
+
+            var query = _context.Reservas
                 .Include(r => r.Usuario)
                 .Include(r => r.Cancha)
                 .Include(r => r.ReservaArticulos)
                     .ThenInclude(ra => ra.Articulo)
-                .OrderByDescending(r => r.Fecha)
-                .ThenByDescending(r => r.HoraEntrada)
+                .Where(r => r.Fecha >= desde && r.Fecha <= hasta)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(r =>
+                    r.Usuario.Nombre.ToLower().Contains(termino) ||
+                    r.Cancha.Nombre.ToLower().Contains(termino) ||
+                    r.CodigoReserva.ToLower().Contains(termino));
+            }
+
+            if (!string.IsNullOrWhiteSpace(estado))
+            {
+                query = query.Where(r => r.EstadoReserva == estado);
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            query = ordenarPor?.ToLower() switch
+            {
+                "nombreusuario" or "cliente" => desc ? query.OrderByDescending(r => r.Usuario.Nombre) : query.OrderBy(r => r.Usuario.Nombre),
+                "nombrecancha" or "cancha" => desc ? query.OrderByDescending(r => r.Cancha.Nombre) : query.OrderBy(r => r.Cancha.Nombre),
+                "total" => desc ? query.OrderByDescending(r => r.Total) : query.OrderBy(r => r.Total),
+                "estadoreserva" or "estado" => desc ? query.OrderByDescending(r => r.EstadoReserva) : query.OrderBy(r => r.EstadoReserva),
+                "fecha" => desc
+                    ? query.OrderByDescending(r => r.Fecha).ThenByDescending(r => r.HoraEntrada)
+                    : query.OrderBy(r => r.Fecha).ThenBy(r => r.HoraEntrada),
+                _ => query.OrderByDescending(r => r.Fecha).ThenByDescending(r => r.HoraEntrada),
+            };
+
+            var totalCount = await query.CountAsync();
+            var reservas = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return reservas.Select(MapToReadDto).ToList();
+            return new PagedResultDto<ReservaReadDto>
+            {
+                Items = reservas.Select(MapToReadDto).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         // GET: Obtener reserva por ID
