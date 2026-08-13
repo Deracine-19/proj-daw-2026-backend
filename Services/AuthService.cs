@@ -22,12 +22,16 @@ namespace proj_daw_2026_backend.Services
         private readonly AppDBContext _context;
         private readonly IConfiguration _config;
         private readonly EmailService _emailService; // Inyección para enviar correos
+        private readonly ILogger<AuthService> _logger;
+        private readonly IHostEnvironment _env;
 
-        public AuthService(AppDBContext context, IConfiguration config, EmailService emailService)
+        public AuthService(AppDBContext context, IConfiguration config, EmailService emailService, ILogger<AuthService> logger, IHostEnvironment env)
         {
             _context = context;
             _config = config;
             _emailService = emailService;
+            _logger = logger;
+            _env = env;
         }
 
         public async Task<Usuario> Register(RegisterDto dto)
@@ -79,8 +83,18 @@ namespace proj_daw_2026_backend.Services
                 usuario.PasswordAnteriorHash = usuario.PasswordHash;
             }
 
-            // Generar clave temporal de 8 caracteres
-            string tempPassword = Guid.NewGuid().ToString("N").Substring(0, 8) + "#2026";
+            // Generar clave temporal de 12 caracteres. Ojo: antes tenía un sufijo fijo "#2026"
+            // pegado a los 8 caracteres aleatorios — cualquiera que viera el patrón se ahorraba
+            // adivinar 5 de los 13 caracteres, y además quedaba desactualizado cada año.
+            string tempPassword = Guid.NewGuid().ToString("N").Substring(0, 12);
+
+            // SOLO EN DEVELOPMENT: imprime la clave en la consola del backend para poder probar
+            // el flujo sin depender de que el SMTP esté configurado/accesible. Nunca se ejecuta
+            // en Production porque queda condicionado a IsDevelopment().
+            if (_env.IsDevelopment())
+            {
+                _logger.LogWarning("[SOLO DEV] Clave temporal para {Email}: {TempPassword}", usuario.Email, tempPassword);
+            }
 
             // Guardar clave temporal e indicar que requiere cambio
             usuario.PasswordHash = HashPassword(tempPassword);
@@ -100,13 +114,19 @@ namespace proj_daw_2026_backend.Services
                     <p style='color: #e74c3c;'><strong>Nota:</strong> Deberás ingresar esta clave e inmediatamente registrar una nueva contraseña.</p>
                 </div>";
 
+            // Igual que en ReservaService: sin este try/catch, un fallo de SMTP desaparece en
+            // silencio dentro del Task.Run desatendido y nunca se sabría por qué no llegó el correo.
+            var destinatario = usuario.Email;
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await _emailService.SendEmailAsync(usuario.Email, "Clave Temporal de Acceso", mensajeHtml);
+                    await _emailService.SendEmailAsync(destinatario, "Clave Temporal de Acceso", mensajeHtml);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "No se pudo enviar el correo de recuperación de contraseña a {Email}", destinatario);
+                }
             });
 
             return true;
