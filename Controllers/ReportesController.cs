@@ -20,33 +20,32 @@ namespace proj_daw_2026_backend.Controllers
             _context = context;
         }
 
-        /// <summary>
-        /// Exporta el listado detallado de reservas a CSV compatible con Excel.
-        /// </summary>
-        [HttpGet("reservas-csv")]
-        public async Task<IActionResult> ExportarReservasCsv([FromQuery] DateOnly fechaInicio, [FromQuery] DateOnly fechaFin)
+        // =========================================================================================
+        // 1. EXPORTAR RESERVAS (Individual)
+        // =========================================================================================
+        [HttpGet("exportar/reservas")]
+        public async Task<IActionResult> ExportarReservasCsv([FromQuery] DateOnly? fechaInicio, [FromQuery] DateOnly? fechaFin)
         {
-            if (fechaFin < fechaInicio)
-            {
-                return BadRequest(new { mensaje = "La fecha final no puede ser anterior a la fecha inicial." });
-            }
-
-            var reservas = await _context.Reservas
+            var query = _context.Reservas
                 .Include(r => r.Usuario)
                 .Include(r => r.Cancha)
                 .Include(r => r.ReservaArticulos)
                     .ThenInclude(ra => ra.Articulo)
-                .Where(r => r.Fecha >= fechaInicio && r.Fecha <= fechaFin)
+                .AsQueryable();
+
+            if (fechaInicio.HasValue && fechaFin.HasValue)
+            {
+                query = query.Where(r => r.Fecha >= fechaInicio.Value && r.Fecha <= fechaFin.Value);
+            }
+
+            var reservas = await query
                 .OrderByDescending(r => r.Fecha)
                 .ThenBy(r => r.HoraEntrada)
                 .ToListAsync();
 
             var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Id;CodigoReserva;Fecha;HoraEntrada;HoraSalida;Cancha;Usuario;Articulos;EstadoReserva;EstadoPago;PrecioAplicado;Total;CreadoEl");
 
-            // Cabecera separada por punto y coma (Estándar de Excel en Español)
-            csvBuilder.AppendLine("CodigoReserva;Fecha;HoraEntrada;HoraSalida;Cancha;Usuario;Email;Articulos;PrecioCancha;Total;EstadoReserva;EstadoPago");
-
-            // Filas
             foreach (var r in reservas)
             {
                 var articulosTexto = r.ReservaArticulos != null && r.ReservaArticulos.Any()
@@ -55,78 +54,118 @@ namespace proj_daw_2026_backend.Controllers
 
                 csvBuilder.AppendLine(string.Join(";", new[]
                 {
+                    r.Id.ToString(),
                     EscapeCsv(r.CodigoReserva),
                     r.Fecha.ToString("yyyy-MM-dd"),
                     r.HoraEntrada.ToString(@"hh\:mm"),
                     r.HoraSalida.ToString(@"hh\:mm"),
                     EscapeCsv(r.Cancha?.Nombre ?? ""),
                     EscapeCsv(r.Usuario?.Nombre ?? ""),
-                    EscapeCsv(r.Usuario?.Email ?? ""),
                     EscapeCsv(articulosTexto),
+                    EscapeCsv(r.EstadoReserva),
+                    r.EstadoPago ? "Pagado" : "Pendiente",
                     r.PrecioAplicado.ToString("F2", CultureInfo.InvariantCulture),
                     r.Total.ToString("F2", CultureInfo.InvariantCulture),
-                    EscapeCsv(r.EstadoReserva),
-                    r.EstadoPago ? "Pagado" : "Pendiente"
+                    r.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss")
                 }));
             }
 
-            // UTF-8 con BOM (Excel lo reconoce como UTF-8 inmediatamente)
-            var utf8Encoding = new UTF8Encoding(true);
-            var fileBytes = utf8Encoding.GetPreamble().Concat(utf8Encoding.GetBytes(csvBuilder.ToString())).ToArray();
-            var fileName = $"Reporte_Reservas_{fechaInicio:yyyyMMdd}_al_{fechaFin:yyyyMMdd}.csv";
-
-            // Usamos application/octet-stream para EVITAR que Swagger corrompa el archivo
-            return File(fileBytes, "application/octet-stream", fileName);
+            return GenerarArchivoCsv(csvBuilder.ToString(), $"Reservas_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
         }
 
-        /// <summary>
-        /// Exporta un resumen consolidado de ingresos por cancha a CSV.
-        /// </summary>
-        [HttpGet("ingresos-canchas-csv")]
-        public async Task<IActionResult> ExportarIngresosCanchasCsv([FromQuery] DateOnly fechaInicio, [FromQuery] DateOnly fechaFin)
+        // =========================================================================================
+        // 2. EXPORTAR CANCHAS (Individual)
+        // =========================================================================================
+        [HttpGet("exportar/canchas")]
+        public async Task<IActionResult> ExportarCanchasCsv()
         {
-            if (fechaFin < fechaInicio)
-            {
-                return BadRequest(new { mensaje = "La fecha final no puede ser anterior a la fecha inicial." });
-            }
-
-            var resumenCanchas = await _context.Reservas
-                .Where(r => r.Fecha >= fechaInicio && r.Fecha <= fechaFin && r.EstadoReserva != "Cancelada")
-                .GroupBy(r => new { r.CanchaId, NombreCancha = r.Cancha.Nombre })
-                .Select(g => new
-                {
-                    CanchaId = g.Key.CanchaId,
-                    NombreCancha = g.Key.NombreCancha,
-                    TotalReservas = g.Count(),
-                    TotalIngresos = g.Sum(r => r.Total)
-                })
-                .OrderByDescending(g => g.TotalIngresos)
-                .ToListAsync();
+            var canchas = await _context.Canchas.ToListAsync();
 
             var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("CanchaId;NombreCancha;TotalReservas;TotalIngresosLempiras");
+            csvBuilder.AppendLine("Id;Nombre;Descripcion;PrecioHora;Estado;CantidadJugadores");
 
-            foreach (var item in resumenCanchas)
+            foreach (var c in canchas)
             {
                 csvBuilder.AppendLine(string.Join(";", new[]
                 {
-                    item.CanchaId.ToString(),
-                    EscapeCsv(item.NombreCancha),
-                    item.TotalReservas.ToString(),
-                    item.TotalIngresos.ToString("F2", CultureInfo.InvariantCulture)
+                    c.Id.ToString(),
+                    EscapeCsv(c.Nombre),
+                    EscapeCsv(c.Descripcion),
+                    c.PrecioHora.ToString("F2", CultureInfo.InvariantCulture),
+                    c.Estado ? "Activa" : "Inactiva",
+                    c.CantidadJugadores.ToString()
                 }));
             }
 
-            var utf8Encoding = new UTF8Encoding(true);
-            var fileBytes = utf8Encoding.GetPreamble().Concat(utf8Encoding.GetBytes(csvBuilder.ToString())).ToArray();
-            var fileName = $"Reporte_Ingresos_Canchas_{fechaInicio:yyyyMMdd}_al_{fechaFin:yyyyMMdd}.csv";
-
-            return File(fileBytes, "application/octet-stream", fileName);
+            return GenerarArchivoCsv(csvBuilder.ToString(), $"Canchas_{DateTime.Now:yyyyMMdd}.csv");
         }
 
-        /// <summary>
-        /// Escapa punto y coma, comillas dobles y saltos de línea.
-        /// </summary>
+        // =========================================================================================
+        // 3. EXPORTAR USUARIOS (Individual)
+        // =========================================================================================
+        [HttpGet("exportar/usuarios")]
+        public async Task<IActionResult> ExportarUsuariosCsv()
+        {
+            var usuarios = await _context.Usuarios.ToListAsync();
+
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Id;Nombre;Email;RolId;Activo;RequiereCambioPassword");
+
+            foreach (var u in usuarios)
+            {
+                csvBuilder.AppendLine(string.Join(";", new[]
+                {
+                    u.Id.ToString(),
+                    EscapeCsv(u.Nombre),
+                    EscapeCsv(u.Email),
+                    u.RolId.ToString(),
+                    u.Activo ? "Si" : "No",
+                    u.RequiereCambioPassword ? "Si" : "No"
+                }));
+            }
+
+            return GenerarArchivoCsv(csvBuilder.ToString(), $"Usuarios_{DateTime.Now:yyyyMMdd}.csv");
+        }
+
+        // =========================================================================================
+        // 4. EXPORTAR ARTICULOS (Individual)
+        // =========================================================================================
+        [HttpGet("exportar/articulos")]
+        public async Task<IActionResult> ExportarArticulosCsv()
+        {
+            var articulos = await _context.Articulos.ToListAsync();
+
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Id;Nombre;Descripcion;Precio;Estado");
+
+            foreach (var a in articulos)
+            {
+                csvBuilder.AppendLine(string.Join(";", new[]
+                {
+                    a.Id.ToString(),
+                    EscapeCsv(a.Nombre),
+                    EscapeCsv(a.Descripcion),
+                    a.Precio.ToString("F2", CultureInfo.InvariantCulture),
+                    a.Estado ? "Activo" : "Inactivo"
+                }));
+            }
+
+            return GenerarArchivoCsv(csvBuilder.ToString(), $"Articulos_{DateTime.Now:yyyyMMdd}.csv");
+        }
+
+
+        // =========================================================================================
+        // MÉTODOS AUXILIARES
+        // =========================================================================================
+
+        private IActionResult GenerarArchivoCsv(string contenidoCsv, string nombreArchivo)
+        {
+            var utf8Encoding = new UTF8Encoding(true);
+            var fileBytes = utf8Encoding.GetPreamble().Concat(utf8Encoding.GetBytes(contenidoCsv)).ToArray();
+
+            return File(fileBytes, "application/octet-stream", nombreArchivo);
+        }
+
         private static string EscapeCsv(string? field)
         {
             if (string.IsNullOrEmpty(field)) return "\"\"";
