@@ -18,9 +18,7 @@ namespace proj_daw_2026_backend.Services
             _logger = logger;
         }
 
-        // GET: Obtener reservas paginadas (panel de administrador). Por defecto solo trae las de
-        // HOY — sin fechaInicio/fechaFin explícitos, devolver la tabla completa se vuelve lento
-        // en cuanto hay muchos registros.
+        // GET: Obtener reservas paginadas
         public async Task<PagedResultDto<ReservaReadDto>> GetAllReservasAsync(
             int page, int pageSize, string? busqueda, string? ordenarPor, string? ordenDireccion,
             DateOnly? fechaInicio, DateOnly? fechaFin, string? estado)
@@ -110,19 +108,65 @@ namespace proj_daw_2026_backend.Services
             return reservas.Select(MapToReadDto).ToList();
         }
 
-        // GET: Horarios ya ocupados de una cancha en una fecha (para calcular disponibilidad)
+        // GET: Horarios ya ocupados de una cancha en una fecha (incluye horas transcurridas si es HOY)
         public async Task<List<HorarioOcupadoDto>> GetHorariosOcupadosAsync(int canchaId, DateOnly fecha)
         {
-            return await _context.Reservas
+            var hoy = DateOnly.FromDateTime(DateTime.Now);
+
+            // Si se consulta un día pasado, todo el día se marca como ocupado/bloqueado
+            if (fecha < hoy)
+            {
+                return new List<HorarioOcupadoDto>
+                {
+                    new HorarioOcupadoDto
+                    {
+                        HoraEntrada = HorarioNegocioConstantes.HoraApertura,
+                        HoraSalida = HorarioNegocioConstantes.HoraCierre
+                    }
+                };
+            }
+
+            var ocupados = await _context.Reservas
                 .Where(r => r.CanchaId == canchaId && r.Fecha == fecha && r.EstadoReserva != "CANCELADA")
                 .Select(r => new HorarioOcupadoDto { HoraEntrada = r.HoraEntrada, HoraSalida = r.HoraSalida })
                 .ToListAsync();
+
+            // Si es la fecha actual, bloqueamos desde la hora de apertura hasta la hora actual
+            if (fecha == hoy)
+            {
+                var horaActual = DateTime.Now.TimeOfDay;
+
+                if (horaActual > HorarioNegocioConstantes.HoraApertura)
+                {
+                    ocupados.Add(new HorarioOcupadoDto
+                    {
+                        HoraEntrada = HorarioNegocioConstantes.HoraApertura,
+                        HoraSalida = horaActual < HorarioNegocioConstantes.HoraCierre ? horaActual : HorarioNegocioConstantes.HoraCierre
+                    });
+                }
+            }
+
+            return ocupados;
         }
 
         // POST: Crear Reserva
         public async Task<ReservaReadDto> CreateReservaAsync(int usuarioId, CreateReservaDto dto)
         {
-            // 1. Validar horarios
+            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            var horaActual = DateTime.Now.TimeOfDay;
+
+            // 1. Validaciones de Fecha y Hora Transcurridas
+            if (dto.Fecha < hoy)
+            {
+                throw new InvalidOperationException("No se pueden realizar reservas para fechas pasadas.");
+            }
+
+            if (dto.Fecha == hoy && dto.HoraEntrada <= horaActual)
+            {
+                throw new InvalidOperationException("No se pueden realizar reservas para horarios que ya transcurrieron.");
+            }
+
+            // 2. Validar orden de horarios de entrada/salida
             if (dto.HoraSalida <= dto.HoraEntrada)
             {
                 throw new InvalidOperationException("La hora de salida debe ser posterior a la hora de entrada.");
@@ -134,14 +178,14 @@ namespace proj_daw_2026_backend.Services
                     $"El horario debe estar entre las {HorarioNegocioConstantes.HoraApertura:hh\\:mm} y las {HorarioNegocioConstantes.HoraCierre:hh\\:mm}.");
             }
 
-            // 2. Validar existencia de la cancha
+            // 3. Validar existencia de la cancha
             var cancha = await _context.Canchas.FindAsync(dto.CanchaId);
             if (cancha == null)
             {
                 throw new KeyNotFoundException("La cancha especificada no existe.");
             }
 
-            // 3. Validar traslape/solapamiento de horarios en la misma cancha
+            // 4. Validar traslape/solapamiento de horarios en la misma cancha
             bool yaReservado = await _context.Reservas.AnyAsync(r =>
                 r.CanchaId == dto.CanchaId &&
                 r.Fecha == dto.Fecha &&
@@ -156,14 +200,14 @@ namespace proj_daw_2026_backend.Services
                 throw new InvalidOperationException("La cancha ya se encuentra reservada en el horario seleccionado.");
             }
 
-            // 4. Calcular precio de la cancha según horas (usando PrecioHora)
+            // 5. Calcular precio de la cancha según horas
             double horas = (dto.HoraSalida - dto.HoraEntrada).TotalHours;
             decimal totalCancha = cancha.PrecioHora * (decimal)horas;
             decimal totalArticulos = 0;
 
             var reservaArticulos = new List<ReservaArticulo>();
 
-            // 5. Procesar artículos si vienen en el DTO (usando Precio)
+            // 6. Procesar artículos
             if (dto.Articulos != null && dto.Articulos.Any())
             {
                 foreach (var item in dto.Articulos)
@@ -191,7 +235,7 @@ namespace proj_daw_2026_backend.Services
                 }
             }
 
-            // 6. Crear la entidad Reserva
+            // 7. Crear la entidad Reserva
             var reserva = new Reserva
             {
                 UsuarioId = usuarioId,
@@ -210,7 +254,7 @@ namespace proj_daw_2026_backend.Services
             _context.Reservas.Add(reserva);
             await _context.SaveChangesAsync();
 
-            // 7. Notificación automática por correo electrónico
+            // 8. Notificación automática por correo electrónico
             var usuario = await _context.Usuarios.FindAsync(usuarioId);
             if (usuario != null && !string.IsNullOrEmpty(usuario.Email))
             {
@@ -242,10 +286,6 @@ namespace proj_daw_2026_backend.Services
                         <p style='font-size: 12px; color: #7f8c8d; text-align: center; margin-top: 20px;'>¡Gracias por confiar en nuestros servicios!</p>
                     </div>";
 
-                // Se ejecuta en segundo plano para no congelar la respuesta HTTP. Envuelto en
-                // try/catch porque una excepción sin observar dentro de un Task.Run desatendido
-                // desaparece en silencio, sin esto, un fallo de SMTP (credenciales, timeout, etc.)
-                // no dejaría como de debuggaerla en ningún lado.
                 var destinatario = usuario.Email;
                 var asunto = $"Confirmación de Reserva #{reserva.CodigoReserva}";
                 _ = Task.Run(async () =>
@@ -270,7 +310,6 @@ namespace proj_daw_2026_backend.Services
             var reserva = await _context.Reservas.FindAsync(id);
             if (reserva == null) return false;
 
-            // Un cliente solo puede cancelar sus propias reservas
             if (!esAdmin && reserva.UsuarioId != usuarioId)
             {
                 throw new UnauthorizedAccessException("No tienes permiso para cancelar esta reserva.");
@@ -281,7 +320,6 @@ namespace proj_daw_2026_backend.Services
             return true;
         }
 
-        // Helper para Mapeo
         private static ReservaReadDto MapToReadDto(Reserva r)
         {
             return new ReservaReadDto
@@ -328,7 +366,6 @@ namespace proj_daw_2026_backend.Services
             return codigo;
         }
 
-        // PATCH: Marcar como pagada (check-in del operador/administrador)
         public async Task<ReservaReadDto?> MarcarComoPagadaAsync(int id)
         {
             var reserva = await _context.Reservas.FindAsync(id);
@@ -349,7 +386,6 @@ namespace proj_daw_2026_backend.Services
             return await GetReservaByIdAsync(id);
         }
 
-        // PATCH: Marcar como No-Show (el cliente no se presentó)
         public async Task<ReservaReadDto?> MarcarComoNoShowAsync(int id)
         {
             var reserva = await _context.Reservas.FindAsync(id);
