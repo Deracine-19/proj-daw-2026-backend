@@ -5,8 +5,15 @@ using Microsoft.OpenApi.Models; // <-- 1. Importante para la configuración de S
 using proj_daw_2026_backend.Services;
 using proj_daw_2026_backend.Data.Entities;
 using System.Text;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Railway (y la mayoría de PaaS) inyectan el puerto a escuchar vía la variable PORT en
+// tiempo de ejecución, no en un archivo de config — Kestrel debe atarse a ese puerto en
+// 0.0.0.0, nunca a localhost. 8080 es el valor por defecto para correr el contenedor local.
+var puerto = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{puerto}");
 
 // Consistencia para las rutas (todas en minúscula)
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
@@ -50,7 +57,7 @@ builder.Services.AddSwaggerGen(options =>
 
 // 3. Conexión a PostgreSQL
 builder.Services.AddDbContext<AppDBContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(ObtenerCadenaConexion(builder.Configuration)));
 
 // 4. Inyección de Dependencias
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -91,12 +98,20 @@ builder.Services.AddAuthentication(config =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(ObtenerOrigenesPermitidos(builder.Configuration))
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
 
 var app = builder.Build();
+
+// Aplica migraciones pendientes al arrancar — así cada deploy en Railway deja la base de
+// datos al día sola, sin un paso manual de "dotnet ef database update" contra producción.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDBContext>();
+    db.Database.Migrate();
+}
 
 app.UseCors("FrontendPolicy");
 
@@ -107,7 +122,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Railway (y la mayoría de PaaS) terminan TLS en su proxy y le reenvían al contenedor
+// tráfico en HTTP plano — si se fuerza HttpsRedirection ahí, Kestrel ve siempre HTTP y
+// redirige en bucle. En producción el proxy ya garantiza HTTPS de cara al usuario.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // 7. MIDDLEWARES DE SEGURIDAD
 app.UseAuthentication();
@@ -117,3 +138,44 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Railway inyecta Postgres como DATABASE_URL en formato URI ("postgres://user:pass@host:port/db"),
+// pero Npgsql espera el formato "Host=...;Port=...;Database=...;Username=...;Password=..." — si
+// existe esa variable se convierte acá; en local se sigue usando ConnectionStrings:DefaultConnection
+// tal cual (de appsettings.Development.json).
+static string ObtenerCadenaConexion(IConfiguration configuration)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (string.IsNullOrEmpty(databaseUrl))
+    {
+        return configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Falta ConnectionStrings:DefaultConnection y no hay DATABASE_URL.");
+    }
+
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':', 2);
+
+    return new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+        SslMode = SslMode.Require,
+        TrustServerCertificate = true
+    }.ConnectionString;
+}
+
+// Orígenes permitidos por CORS: configurables vía "Cors:AllowedOrigins" en appsettings
+// (o la variable de entorno Cors__AllowedOrigins en Railway), separados por comas — para poder
+// apuntar al dominio real del frontend una vez que Railway se lo asigne. localhost:5173 siempre
+// queda permitido para desarrollo local.
+static string[] ObtenerOrigenesPermitidos(IConfiguration configuration)
+{
+    var configurados = configuration["Cors:AllowedOrigins"]
+        ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        ?? Array.Empty<string>();
+
+    return configurados.Append("http://localhost:5173").Distinct().ToArray();
+}
