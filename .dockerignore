@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.git/
+.gitignore
+appsettings.Development.json
+*.user
+*.slnx.user
+*.http
+Properties/launchSettings.json

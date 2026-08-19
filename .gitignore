@@ -10,7 +10,10 @@
 *.userosscache
 *.sln.docstates
 appsettings.Development.json
-Migrations/
+
+# Migrations/ NO va acá — deben versionarse. Un despliegue (Railway, u otra máquina) clona el
+# repo desde cero y corre `db.Database.Migrate()` al arrancar (ver Program.cs); sin las
+# migraciones en git, esa migración automática no tendría nada que aplicar.
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
