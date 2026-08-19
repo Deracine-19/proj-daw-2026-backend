@@ -1,18 +1,34 @@
-﻿namespace proj_daw_2026_backend.DTOs
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace proj_daw_2026_backend.DTOs
 {
     // DTO para enviar la petición de creación de una reserva
     public class CreateReservaDto
     {
+        [Required(ErrorMessage = "La cancha es obligatoria.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar una cancha válida.")]
         public int CanchaId { get; set; }
+
+        [Required(ErrorMessage = "La fecha de reserva es obligatoria.")]
         public DateOnly Fecha { get; set; }
+
+        [Required(ErrorMessage = "La hora de entrada es obligatoria.")]
         public TimeSpan HoraEntrada { get; set; }
+
+        [Required(ErrorMessage = "La hora de salida es obligatoria.")]
         public TimeSpan HoraSalida { get; set; }
+
         public List<CreateReservaArticuloDto>? Articulos { get; set; }
     }
 
     public class CreateReservaArticuloDto
     {
+        [Required(ErrorMessage = "El artículo es obligatorio.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un artículo válido.")]
         public int ArticuloId { get; set; }
+
+        [Required(ErrorMessage = "La cantidad es obligatoria.")]
+        [Range(1, 100, ErrorMessage = "La cantidad debe ser de al menos 1 unidad.")]
         public int Cantidad { get; set; }
     }
 
@@ -44,7 +60,6 @@
     }
 
     // DTO para exponer los horarios ya ocupados de una cancha en una fecha
-    // (usado por el cliente para calcular disponibilidad antes de reservar)
     public class HorarioOcupadoDto
     {
         public TimeSpan HoraEntrada { get; set; }

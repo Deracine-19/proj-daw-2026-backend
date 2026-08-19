@@ -8,4 +8,5 @@ public class UsuarioDto
     public int RolId { get; set; }
     public string RolNombre { get; set; } = string.Empty;
     public bool Activo { get; set; }
+    public string? ImagenBase64 { get; set; }
 }

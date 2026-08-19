@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 using proj_daw_2026_backend.Services;
 
@@ -18,17 +17,22 @@ namespace proj_daw_2026_backend.Controllers
             _canchaService = canchaService;
         }
 
-        // GET: api/Cancha (Cualquier usuario autenticado)
+        // GET: api/Cancha?page=1&pageSize=20&busqueda=&ordenarPor=&ordenDireccion= (Cualquier usuario autenticado)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Cancha>>> GetCanchas()
+        public async Task<ActionResult<PagedResultDto<CanchaReadDto>>> GetCanchas(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? busqueda = null,
+            [FromQuery] string? ordenarPor = null,
+            [FromQuery] string? ordenDireccion = null)
         {
-            var canchas = await _canchaService.GetAllCanchasAsync();
+            var canchas = await _canchaService.GetAllCanchasAsync(page, pageSize, busqueda, ordenarPor, ordenDireccion);
             return Ok(canchas);
         }
 
         // GET: api/Cancha/1 (Cualquier usuario autenticado)
         [HttpGet("{id}")]
-        public async Task<ActionResult<Cancha>> GetCanchaById(int id)
+        public async Task<ActionResult<CanchaReadDto>> GetCanchaById(int id)
         {
             var cancha = await _canchaService.GetCanchaByIdAsync(id);
 
@@ -43,7 +47,7 @@ namespace proj_daw_2026_backend.Controllers
         // POST: api/Cancha (Solo Administrador)
         [HttpPost]
         [Authorize(Roles = "Administrador")]
-        public async Task<ActionResult<Cancha>> CreateCancha([FromBody] CanchaDto dto)
+        public async Task<ActionResult<CanchaReadDto>> CreateCancha([FromBody] CanchaDto dto)
         {
             try
             {
@@ -59,7 +63,7 @@ namespace proj_daw_2026_backend.Controllers
         // PUT: api/Cancha/1 (Solo Administrador)
         [HttpPut("{id}")]
         [Authorize(Roles = "Administrador")]
-        public async Task<ActionResult<Cancha>> UpdateCancha(int id, [FromBody] CanchaDto dto)
+        public async Task<ActionResult<CanchaReadDto>> UpdateCancha(int id, [FromBody] CanchaDto dto)
         {
             try
             {
@@ -81,7 +85,7 @@ namespace proj_daw_2026_backend.Controllers
         // PATCH: api/Cancha/1/status (Solo Administrador)
         [HttpPatch("{id}/status")]
         [Authorize(Roles = "Administrador")]
-        public async Task<ActionResult<Cancha>> ChangeCanchaStatus(int id)
+        public async Task<ActionResult<CanchaReadDto>> ChangeCanchaStatus(int id)
         {
             var canchaActualizada = await _canchaService.ChangeCanchaStatusAsync(id);
 

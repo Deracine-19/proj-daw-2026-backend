@@ -59,6 +59,7 @@ builder.Services.AddScoped<CanchaService>();
 builder.Services.AddScoped<ReservaService>();
 builder.Services.AddScoped<IArticuloService, ArticuloService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<IConfiguracionService, ConfiguracionService>();
 builder.Services.AddScoped<EmailService>();
 
 // 5. CONFIGURACIÓN DE AUTENTICACIÓN JWT
