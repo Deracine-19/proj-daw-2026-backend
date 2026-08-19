@@ -13,6 +13,8 @@ namespace proj_daw_2026_backend.Services
         Task<UsuarioDto> Update(int id, UsuarioUpdateDto dto);
         Task<UsuarioDto> CreateUser(UsuarioCreateDto dto);
         Task<UsuarioDto> ChangeUserStatus(int id, int currentUserId);
+        Task<UsuarioDto> ActualizarFotoPropiaAsync(int usuarioId, string? imagenBase64);
+        Task<List<Usuario>> GetUsuariosParaExportarAsync(string? busqueda, string? ordenarPor, string? ordenDireccion, string? rol, bool? activo);
     }
 
     public class UsuarioService : IUsuarioService
@@ -29,32 +31,7 @@ namespace proj_daw_2026_backend.Services
         {
             (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
 
-            var query = _context.Usuarios.Include(u => u.Rol).AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(busqueda))
-            {
-                var termino = busqueda.Trim().ToLower();
-                query = query.Where(u => u.Nombre.ToLower().Contains(termino) || u.Email.ToLower().Contains(termino));
-            }
-
-            if (!string.IsNullOrWhiteSpace(rol))
-            {
-                query = query.Where(u => u.Rol.Nombre == rol);
-            }
-
-            if (activo.HasValue)
-            {
-                query = query.Where(u => u.Activo == activo.Value);
-            }
-
-            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
-            query = ordenarPor?.ToLower() switch
-            {
-                "email" => desc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
-                "rol" or "rolnombre" => desc ? query.OrderByDescending(u => u.Rol.Nombre) : query.OrderBy(u => u.Rol.Nombre),
-                "activo" or "estado" => desc ? query.OrderByDescending(u => u.Activo) : query.OrderBy(u => u.Activo),
-                _ => desc ? query.OrderByDescending(u => u.Nombre) : query.OrderBy(u => u.Nombre),
-            };
+            var query = ConstruirConsultaUsuarios(busqueda, ordenarPor, ordenDireccion, rol, activo);
 
             var totalCount = await query.CountAsync();
             var usuarios = await query
@@ -83,6 +60,8 @@ namespace proj_daw_2026_backend.Services
 
         public async Task<UsuarioDto> Update(int id, UsuarioUpdateDto dto)
         {
+            ImagenValidator.Validar(dto.ImagenBase64);
+
             var usuario = await _context.Usuarios
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Id == id)
@@ -91,6 +70,8 @@ namespace proj_daw_2026_backend.Services
             usuario.Nombre = dto.Nombre;
             usuario.Email = dto.Email;
             usuario.RolId = dto.RolId;
+            usuario.ImagenBase64 = dto.ImagenBase64;
+            usuario.LastEditedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -132,9 +113,70 @@ namespace proj_daw_2026_backend.Services
                 ?? throw new KeyNotFoundException("Usuario no encontrado");
 
             usuario.Activo = !usuario.Activo;
+            usuario.LastEditedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
             return usuario.Adapt<UsuarioDto>();
+        }
+
+        // PATCH: El propio usuario (cualquier rol) cambia su foto de perfil — a diferencia de
+        // Update(), no toca nombre/email/rol, así que no requiere ser Administrador.
+        public async Task<UsuarioDto> ActualizarFotoPropiaAsync(int usuarioId, string? imagenBase64)
+        {
+            ImagenValidator.Validar(imagenBase64);
+
+            var usuario = await _context.Usuarios
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.Id == usuarioId)
+                ?? throw new KeyNotFoundException("Usuario no encontrado");
+
+            usuario.ImagenBase64 = imagenBase64;
+            usuario.LastEditedDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return usuario.Adapt<UsuarioDto>();
+        }
+
+        // Construye la consulta filtrada (búsqueda/rol/activo/orden) SIN paginar — la comparten
+        // el listado paginado y el reporte de exportación para que ambos apliquen los mismos filtros.
+        private IQueryable<Usuario> ConstruirConsultaUsuarios(
+            string? busqueda, string? ordenarPor, string? ordenDireccion, string? rol, bool? activo)
+        {
+            var query = _context.Usuarios.Include(u => u.Rol).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(u => u.Nombre.ToLower().Contains(termino) || u.Email.ToLower().Contains(termino));
+            }
+
+            if (!string.IsNullOrWhiteSpace(rol))
+            {
+                query = query.Where(u => u.Rol.Nombre == rol);
+            }
+
+            if (activo.HasValue)
+            {
+                query = query.Where(u => u.Activo == activo.Value);
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            return ordenarPor?.ToLower() switch
+            {
+                "email" => desc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+                "rol" or "rolnombre" => desc ? query.OrderByDescending(u => u.Rol.Nombre) : query.OrderBy(u => u.Rol.Nombre),
+                "activo" or "estado" => desc ? query.OrderByDescending(u => u.Activo) : query.OrderBy(u => u.Activo),
+                _ => desc ? query.OrderByDescending(u => u.Nombre) : query.OrderBy(u => u.Nombre),
+            };
+        }
+
+        // GET: Usuarios para el reporte CSV — mismos filtros que la tabla del panel, sin paginar.
+        // OJO: devuelve la entidad completa (incluye PasswordHash) — el controlador es responsable
+        // de armar el CSV a mano sin exponer ese campo, nunca se debe serializar esto directo.
+        public async Task<List<Usuario>> GetUsuariosParaExportarAsync(
+            string? busqueda, string? ordenarPor, string? ordenDireccion, string? rol, bool? activo)
+        {
+            return await ConstruirConsultaUsuarios(busqueda, ordenarPor, ordenDireccion, rol, activo).ToListAsync();
         }
     }
 }

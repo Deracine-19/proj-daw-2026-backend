@@ -12,4 +12,7 @@ public class Cancha
 
     // Data URI completo ("data:image/png;base64,....") — mismo esquema que Articulo.ImagenBase64.
     public string? ImagenBase64 { get; set; }
+
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime? LastEditedDate { get; set; }
 }

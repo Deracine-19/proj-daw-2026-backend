@@ -1,58 +1,177 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using proj_daw_2026_backend.Data;
-using proj_daw_2026_backend.Data.Entities;
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using proj_daw_2026_backend.Data.Entities;
+using proj_daw_2026_backend.Services;
 
 namespace proj_daw_2026_backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrador")]
+    [Authorize] // La autorización específica de cada reporte se decide por acción, no acá.
     public class ReportesController : ControllerBase
     {
-        private readonly AppDBContext _context;
+        private readonly CanchaService _canchaService;
+        private readonly IUsuarioService _usuarioService;
+        private readonly IArticuloService _articuloService;
+        private readonly ReservaService _reservaService;
 
-        public ReportesController(AppDBContext context)
+        public ReportesController(
+            CanchaService canchaService,
+            IUsuarioService usuarioService,
+            IArticuloService articuloService,
+            ReservaService reservaService)
         {
-            _context = context;
+            _canchaService = canchaService;
+            _usuarioService = usuarioService;
+            _articuloService = articuloService;
+            _reservaService = reservaService;
         }
 
         // =========================================================================================
-        // 1. EXPORTAR RESERVAS (Individual)
+        // 1. EXPORTAR RESERVAS — panel de administrador (Admin + Operador, igual que la tabla)
         // =========================================================================================
         [HttpGet("exportar/reservas")]
-        public async Task<IActionResult> ExportarReservasCsv([FromQuery] DateOnly? fechaInicio, [FromQuery] DateOnly? fechaFin)
+        [Authorize(Roles = "Administrador,Operador")]
+        public async Task<IActionResult> ExportarReservasCsv(
+            [FromQuery] string? busqueda,
+            [FromQuery] string? ordenarPor,
+            [FromQuery] string? ordenDireccion,
+            [FromQuery] DateOnly? fechaInicio,
+            [FromQuery] DateOnly? fechaFin,
+            [FromQuery] string? estado)
         {
-            var query = _context.Reservas
-                .Include(r => r.Usuario)
-                .Include(r => r.Cancha)
-                .Include(r => r.ReservaArticulos)
-                    .ThenInclude(ra => ra.Articulo)
-                .AsQueryable();
+            var reservas = await _reservaService.GetReservasParaExportarAsync(
+                busqueda, ordenarPor, ordenDireccion, fechaInicio, fechaFin, estado);
 
-            if (fechaInicio.HasValue && fechaFin.HasValue)
+            return GenerarArchivoCsv(ConstruirCsvReservas(reservas), NombreArchivo("reservas"));
+        }
+
+        // =========================================================================================
+        // 2. EXPORTAR MIS RESERVAS — cualquier usuario autenticado, solo sus propias reservas
+        // =========================================================================================
+        [HttpGet("exportar/mis-reservas")]
+        public async Task<IActionResult> ExportarMisReservasCsv()
+        {
+            int usuarioId = GetUserIdFromToken();
+            var reservas = await _reservaService.GetReservasDeUsuarioParaExportarAsync(usuarioId);
+
+            return GenerarArchivoCsv(ConstruirCsvReservas(reservas), NombreArchivo("mis-reservas"));
+        }
+
+        // =========================================================================================
+        // 3. EXPORTAR CANCHAS (Solo Administrador)
+        // =========================================================================================
+        [HttpGet("exportar/canchas")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> ExportarCanchasCsv(
+            [FromQuery] string? busqueda, [FromQuery] string? ordenarPor, [FromQuery] string? ordenDireccion)
+        {
+            var canchas = await _canchaService.GetCanchasParaExportarAsync(busqueda, ordenarPor, ordenDireccion);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Id;Nombre;Descripcion;PrecioHora;Estado;CantidadJugadores;CreadoEl;EditadoEl");
+
+            foreach (var c in canchas)
             {
-                query = query.Where(r => r.Fecha >= fechaInicio.Value && r.Fecha <= fechaFin.Value);
+                csv.AppendLine(string.Join(";", new[]
+                {
+                    c.Id.ToString(),
+                    EscapeCsv(c.Nombre),
+                    EscapeCsv(c.Descripcion),
+                    c.PrecioHora.ToString("F2", CultureInfo.InvariantCulture),
+                    c.Estado ? "Activa" : "Inactiva",
+                    c.CantidadJugadores.ToString(),
+                    FormatoFecha(c.CreatedDate),
+                    FormatoFecha(c.LastEditedDate)
+                }));
             }
 
-            var reservas = await query
-                .OrderByDescending(r => r.Fecha)
-                .ThenBy(r => r.HoraEntrada)
-                .ToListAsync();
+            return GenerarArchivoCsv(csv.ToString(), NombreArchivo("canchas"));
+        }
 
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Id;CodigoReserva;Fecha;HoraEntrada;HoraSalida;Cancha;Usuario;Articulos;EstadoReserva;EstadoPago;PrecioAplicado;Total;CreadoEl");
+        // =========================================================================================
+        // 4. EXPORTAR USUARIOS (Solo Administrador) — nunca incluye PasswordHash/PasswordAnteriorHash
+        // =========================================================================================
+        [HttpGet("exportar/usuarios")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> ExportarUsuariosCsv(
+            [FromQuery] string? busqueda, [FromQuery] string? ordenarPor, [FromQuery] string? ordenDireccion,
+            [FromQuery] string? rol, [FromQuery] bool? activo)
+        {
+            var usuarios = await _usuarioService.GetUsuariosParaExportarAsync(busqueda, ordenarPor, ordenDireccion, rol, activo);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Id;Nombre;Email;Rol;Activo;RequiereCambioPassword;CreadoEl;EditadoEl");
+
+            foreach (var u in usuarios)
+            {
+                csv.AppendLine(string.Join(";", new[]
+                {
+                    u.Id.ToString(),
+                    EscapeCsv(u.Nombre),
+                    EscapeCsv(u.Email),
+                    EscapeCsv(u.Rol?.Nombre ?? ""),
+                    u.Activo ? "Si" : "No",
+                    u.RequiereCambioPassword ? "Si" : "No",
+                    FormatoFecha(u.CreatedDate),
+                    FormatoFecha(u.LastEditedDate)
+                }));
+            }
+
+            return GenerarArchivoCsv(csv.ToString(), NombreArchivo("usuarios"));
+        }
+
+        // =========================================================================================
+        // 5. EXPORTAR ARTICULOS (Solo Administrador)
+        // =========================================================================================
+        [HttpGet("exportar/articulos")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> ExportarArticulosCsv(
+            [FromQuery] string? busqueda, [FromQuery] string? ordenarPor, [FromQuery] string? ordenDireccion)
+        {
+            var articulos = await _articuloService.GetArticulosParaExportarAsync(busqueda, ordenarPor, ordenDireccion);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Id;Nombre;Descripcion;Precio;Estado;CreadoEl;EditadoEl");
+
+            foreach (var a in articulos)
+            {
+                csv.AppendLine(string.Join(";", new[]
+                {
+                    a.Id.ToString(),
+                    EscapeCsv(a.Nombre),
+                    EscapeCsv(a.Descripcion),
+                    a.Precio.ToString("F2", CultureInfo.InvariantCulture),
+                    a.Estado ? "Activo" : "Inactivo",
+                    FormatoFecha(a.CreatedDate),
+                    FormatoFecha(a.LastEditedDate)
+                }));
+            }
+
+            return GenerarArchivoCsv(csv.ToString(), NombreArchivo("articulos"));
+        }
+
+        // =========================================================================================
+        // MÉTODOS AUXILIARES
+        // =========================================================================================
+
+        // Reutilizado por el reporte de administración y el de "mis reservas" del cliente —
+        // así ambos quedan con exactamente las mismas columnas, sin duplicar el armado del CSV.
+        private static string ConstruirCsvReservas(List<Reserva> reservas)
+        {
+            var csv = new StringBuilder();
+            csv.AppendLine("Id;CodigoReserva;Fecha;HoraEntrada;HoraSalida;Cancha;Usuario;Articulos;EstadoReserva;EstadoPago;PrecioAplicado;Total;CreadoEl;EditadoEl");
 
             foreach (var r in reservas)
             {
                 var articulosTexto = r.ReservaArticulos != null && r.ReservaArticulos.Any()
-                    ? string.Join(" | ", r.ReservaArticulos.Select(ra => $"{ra.Articulo.Nombre} (x{ra.Cantidad})"))
+                    ? string.Join(" | ", r.ReservaArticulos.Select(ra => $"{ra.Articulo?.Nombre ?? "Artículo"} (x{ra.Cantidad})"))
                     : "Ninguno";
 
-                csvBuilder.AppendLine(string.Join(";", new[]
+                csv.AppendLine(string.Join(";", new[]
                 {
                     r.Id.ToString(),
                     EscapeCsv(r.CodigoReserva),
@@ -66,104 +185,26 @@ namespace proj_daw_2026_backend.Controllers
                     r.EstadoPago ? "Pagado" : "Pendiente",
                     r.PrecioAplicado.ToString("F2", CultureInfo.InvariantCulture),
                     r.Total.ToString("F2", CultureInfo.InvariantCulture),
-                    r.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss")
+                    FormatoFecha(r.CreatedDate),
+                    FormatoFecha(r.LastEditedDate)
                 }));
             }
 
-            return GenerarArchivoCsv(csvBuilder.ToString(), $"Reservas_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            return csv.ToString();
         }
 
-        // =========================================================================================
-        // 2. EXPORTAR CANCHAS (Individual)
-        // =========================================================================================
-        [HttpGet("exportar/canchas")]
-        public async Task<IActionResult> ExportarCanchasCsv()
-        {
-            var canchas = await _context.Canchas.ToListAsync();
+        private static string NombreArchivo(string dato) => $"{dato}_{DateTime.Now:yyyy-MM-dd}.csv";
 
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Id;Nombre;Descripcion;PrecioHora;Estado;CantidadJugadores");
-
-            foreach (var c in canchas)
-            {
-                csvBuilder.AppendLine(string.Join(";", new[]
-                {
-                    c.Id.ToString(),
-                    EscapeCsv(c.Nombre),
-                    EscapeCsv(c.Descripcion),
-                    c.PrecioHora.ToString("F2", CultureInfo.InvariantCulture),
-                    c.Estado ? "Activa" : "Inactiva",
-                    c.CantidadJugadores.ToString()
-                }));
-            }
-
-            return GenerarArchivoCsv(csvBuilder.ToString(), $"Canchas_{DateTime.Now:yyyyMMdd}.csv");
-        }
-
-        // =========================================================================================
-        // 3. EXPORTAR USUARIOS (Individual)
-        // =========================================================================================
-        [HttpGet("exportar/usuarios")]
-        public async Task<IActionResult> ExportarUsuariosCsv()
-        {
-            var usuarios = await _context.Usuarios.ToListAsync();
-
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Id;Nombre;Email;RolId;Activo;RequiereCambioPassword");
-
-            foreach (var u in usuarios)
-            {
-                csvBuilder.AppendLine(string.Join(";", new[]
-                {
-                    u.Id.ToString(),
-                    EscapeCsv(u.Nombre),
-                    EscapeCsv(u.Email),
-                    u.RolId.ToString(),
-                    u.Activo ? "Si" : "No",
-                    u.RequiereCambioPassword ? "Si" : "No"
-                }));
-            }
-
-            return GenerarArchivoCsv(csvBuilder.ToString(), $"Usuarios_{DateTime.Now:yyyyMMdd}.csv");
-        }
-
-        // =========================================================================================
-        // 4. EXPORTAR ARTICULOS (Individual)
-        // =========================================================================================
-        [HttpGet("exportar/articulos")]
-        public async Task<IActionResult> ExportarArticulosCsv()
-        {
-            var articulos = await _context.Articulos.ToListAsync();
-
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Id;Nombre;Descripcion;Precio;Estado");
-
-            foreach (var a in articulos)
-            {
-                csvBuilder.AppendLine(string.Join(";", new[]
-                {
-                    a.Id.ToString(),
-                    EscapeCsv(a.Nombre),
-                    EscapeCsv(a.Descripcion),
-                    a.Precio.ToString("F2", CultureInfo.InvariantCulture),
-                    a.Estado ? "Activo" : "Inactivo"
-                }));
-            }
-
-            return GenerarArchivoCsv(csvBuilder.ToString(), $"Articulos_{DateTime.Now:yyyyMMdd}.csv");
-        }
-
-
-        // =========================================================================================
-        // MÉTODOS AUXILIARES
-        // =========================================================================================
+        private static string FormatoFecha(DateTime? fecha) =>
+            fecha.HasValue ? fecha.Value.ToString("yyyy-MM-dd HH:mm:ss") : "";
 
         private IActionResult GenerarArchivoCsv(string contenidoCsv, string nombreArchivo)
         {
+            // BOM UTF-8: sin esto, Excel puede mostrar mal los acentos/ñ al abrir el archivo directo.
             var utf8Encoding = new UTF8Encoding(true);
             var fileBytes = utf8Encoding.GetPreamble().Concat(utf8Encoding.GetBytes(contenidoCsv)).ToArray();
 
-            return File(fileBytes, "application/octet-stream", nombreArchivo);
+            return File(fileBytes, "text/csv", nombreArchivo);
         }
 
         private static string EscapeCsv(string? field)
@@ -176,6 +217,16 @@ namespace proj_daw_2026_backend.Controllers
             }
 
             return $"\"{field}\"";
+        }
+
+        private int GetUserIdFromToken()
+        {
+            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(nameIdentifierClaim, out int usuarioId))
+            {
+                return usuarioId;
+            }
+            throw new UnauthorizedAccessException("Usuario no válido en el Token.");
         }
     }
 }

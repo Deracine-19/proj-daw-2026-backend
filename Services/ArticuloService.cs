@@ -12,6 +12,7 @@ namespace proj_daw_2026_backend.Services
         Task<ArticuloReadDto> CreateArticulo(ArticuloCreateDto dto);
         Task<ArticuloReadDto?> UpdateArticulo(int id, ArticuloUpdateDto dto);
         Task<ArticuloReadDto?> ChangeArticuloStatus(int id);
+        Task<List<Articulo>> GetArticulosParaExportarAsync(string? busqueda, string? ordenarPor, string? ordenDireccion);
     }
 
     public class ArticuloService : IArticuloService
@@ -28,23 +29,7 @@ namespace proj_daw_2026_backend.Services
         {
             (page, pageSize) = PaginacionHelper.Normalizar(page, pageSize);
 
-            var query = _context.Articulos.AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(busqueda))
-            {
-                var termino = busqueda.Trim().ToLower();
-                query = query.Where(a =>
-                    a.Nombre.ToLower().Contains(termino) ||
-                    a.Descripcion.ToLower().Contains(termino));
-            }
-
-            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
-            query = ordenarPor?.ToLower() switch
-            {
-                "precio" => desc ? query.OrderByDescending(a => a.Precio) : query.OrderBy(a => a.Precio),
-                "estado" => desc ? query.OrderByDescending(a => a.Estado) : query.OrderBy(a => a.Estado),
-                _ => desc ? query.OrderByDescending(a => a.Nombre) : query.OrderBy(a => a.Nombre),
-            };
+            var query = ConstruirConsultaArticulos(busqueda, ordenarPor, ordenDireccion);
 
             var totalCount = await query.CountAsync();
             var articulos = await query
@@ -97,6 +82,7 @@ namespace proj_daw_2026_backend.Services
             articulo.Precio = dto.Precio;
             articulo.Estado = dto.Estado;
             articulo.ImagenBase64 = dto.ImagenBase64;
+            articulo.LastEditedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return MapToReadDto(articulo);
@@ -108,6 +94,7 @@ namespace proj_daw_2026_backend.Services
             if (articulo == null) return null;
 
             articulo.Estado = !articulo.Estado;
+            articulo.LastEditedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return MapToReadDto(articulo);
         }
@@ -128,6 +115,35 @@ namespace proj_daw_2026_backend.Services
                 throw new InvalidOperationException("El precio debe ser mayor a 0.");
 
             ImagenValidator.Validar(imagenBase64);
+        }
+
+        // Construye la consulta filtrada (búsqueda/orden) SIN paginar — la comparten el listado
+        // paginado y el reporte de exportación para que ambos apliquen los mismos filtros.
+        private IQueryable<Articulo> ConstruirConsultaArticulos(string? busqueda, string? ordenarPor, string? ordenDireccion)
+        {
+            var query = _context.Articulos.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busqueda))
+            {
+                var termino = busqueda.Trim().ToLower();
+                query = query.Where(a =>
+                    a.Nombre.ToLower().Contains(termino) ||
+                    a.Descripcion.ToLower().Contains(termino));
+            }
+
+            bool desc = string.Equals(ordenDireccion, "desc", StringComparison.OrdinalIgnoreCase);
+            return ordenarPor?.ToLower() switch
+            {
+                "precio" => desc ? query.OrderByDescending(a => a.Precio) : query.OrderBy(a => a.Precio),
+                "estado" => desc ? query.OrderByDescending(a => a.Estado) : query.OrderBy(a => a.Estado),
+                _ => desc ? query.OrderByDescending(a => a.Nombre) : query.OrderBy(a => a.Nombre),
+            };
+        }
+
+        // GET: Artículos para el reporte CSV — mismos filtros que la tabla del panel, sin paginar.
+        public async Task<List<Articulo>> GetArticulosParaExportarAsync(string? busqueda, string? ordenarPor, string? ordenDireccion)
+        {
+            return await ConstruirConsultaArticulos(busqueda, ordenarPor, ordenDireccion).ToListAsync();
         }
 
         private static ArticuloReadDto MapToReadDto(Articulo a) => new()

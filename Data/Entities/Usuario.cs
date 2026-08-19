@@ -19,4 +19,10 @@ public class Usuario
     // Nuevos campos para la recuperación de contraseña
     public bool RequiereCambioPassword { get; set; } = false;
     public string? PasswordAnteriorHash { get; set; }
+
+    // Data URI completo ("data:image/png;base64,....") — mismo esquema que Cancha/Articulo.ImagenBase64.
+    public string? ImagenBase64 { get; set; }
+
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime? LastEditedDate { get; set; }
 }

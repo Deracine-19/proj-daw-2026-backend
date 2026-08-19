@@ -15,4 +15,8 @@ public class UsuarioUpdateDto
     [Required(ErrorMessage = "El rol es obligatorio.")]
     [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un rol válido.")]
     public int RolId { get; set; }
+
+    // Editable solo por Administrador, vía este mismo DTO. La foto propia del usuario
+    // (cualquier rol) se cambia por separado — ver ActualizarFotoDto / endpoint "perfil/foto".
+    public string? ImagenBase64 { get; set; }
 }

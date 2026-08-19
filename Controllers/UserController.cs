@@ -32,16 +32,19 @@ namespace proj_daw_2026_backend.Controllers
             [FromQuery] bool? activo = null)
             => Ok(await _usuarioService.GetAll(page, pageSize, busqueda, ordenarPor, ordenDireccion, rol, activo));
 
-        // GET: api/usuarios/5
+        // GET: api/usuarios/5 (Solo Administrador — para ver/editar los datos de OTRO usuario.
+        // El propio usuario ve su perfil vía GET api/usuarios/perfil, más abajo.)
         [HttpGet("{id}")]
+        [Authorize(Roles = RolesConstantes.Administrador)]
         public async Task<ActionResult<UsuarioDto>> GetById(int id)
         {
             var usuario = await _usuarioService.GetById(id);
             return usuario != null ? Ok(usuario) : NotFound();
         }
 
-        // PUT: api/usuarios/5
+        // PUT: api/usuarios/5 (Solo Administrador — nombre/email/rol/foto de cualquier usuario)
         [HttpPut("{id}")]
+        [Authorize(Roles = RolesConstantes.Administrador)]
         public async Task<ActionResult<UsuarioDto>> Update(int id, [FromBody] UsuarioUpdateDto dto)
         {
             try
@@ -51,6 +54,39 @@ namespace proj_daw_2026_backend.Controllers
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
+        }
+
+        // GET: api/usuarios/perfil (Cualquier usuario autenticado — su propio perfil. Existe porque
+        // el JWT solo trae email/rol, no nombre ni foto.)
+        [HttpGet("perfil")]
+        public async Task<ActionResult<UsuarioDto>> GetPerfil()
+        {
+            int usuarioId = GetUserIdFromToken();
+            var usuario = await _usuarioService.GetById(usuarioId);
+            return usuario != null ? Ok(usuario) : NotFound();
+        }
+
+        // PATCH: api/usuarios/perfil/foto (Cualquier usuario autenticado — su propia foto de perfil)
+        [HttpPatch("perfil/foto")]
+        public async Task<ActionResult<UsuarioDto>> ActualizarFotoPropia([FromBody] ActualizarFotoDto dto)
+        {
+            try
+            {
+                int usuarioId = GetUserIdFromToken();
+                return Ok(await _usuarioService.ActualizarFotoPropiaAsync(usuarioId, dto.ImagenBase64));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
             }
         }
 
@@ -82,6 +118,17 @@ namespace proj_daw_2026_backend.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        // Helper para extraer el ID del usuario autenticado mediante el Token JWT
+        private int GetUserIdFromToken()
+        {
+            var nameIdentifierClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(nameIdentifierClaim, out int usuarioId))
+            {
+                return usuarioId;
+            }
+            throw new UnauthorizedAccessException("Usuario no válido en el Token.");
         }
     }
 }

@@ -12,5 +12,8 @@
         // Data URI completo ("data:image/png;base64,....") — se guarda directo en la BD
         // para no depender de un bucket/almacenamiento externo.
         public string? ImagenBase64 { get; set; }
+
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime? LastEditedDate { get; set; }
     }
 }
