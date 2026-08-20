@@ -10,10 +10,15 @@ using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
 
 // Railway (y la mayoría de PaaS) inyectan el puerto a escuchar vía la variable PORT en
-// tiempo de ejecución, no en un archivo de config — Kestrel debe atarse a ese puerto en
-// 0.0.0.0, nunca a localhost. 8080 es el valor por defecto para correr el contenedor local.
-var puerto = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{puerto}");
+// tiempo de ejecución, no en un archivo de config. Solo forzamos el binding cuando esa
+// variable existe (dentro del contenedor) — en local dev NO tocamos nada, así Kestrel sigue
+// usando lo que ya dice Properties/launchSettings.json (http://0.0.0.0:5248), que es el
+// puerto que el resto del equipo, Postman y el .env del frontend ya esperan.
+var puerto = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(puerto))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{puerto}");
+}
 
 // Consistencia para las rutas (todas en minúscula)
 builder.Services.AddRouting(options => options.LowercaseUrls = true);

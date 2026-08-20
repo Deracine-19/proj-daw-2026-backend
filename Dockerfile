@@ -18,7 +18,8 @@ COPY --from=build /app/publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Documental — Railway inyecta la variable PORT real en tiempo de ejecución y Program.cs
-# hace que Kestrel escuche ahí (con 8080 como valor por defecto si no existe la variable).
+# hace que Kestrel escuche ahí. Si esa variable no existe (ej. "docker run" local sin
+# pasarla), la imagen base de .NET 8 ya escucha en 8080 por su cuenta.
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "proj-daw-2026-backend.dll"]
