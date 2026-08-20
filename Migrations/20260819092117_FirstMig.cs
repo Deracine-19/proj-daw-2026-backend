@@ -177,7 +177,7 @@ namespace proj_daw_2026_backend.Migrations
             migrationBuilder.InsertData(
                 table: "Configuracion",
                 columns: new[] { "Id", "HoraApertura", "HoraCierre", "LastEditedDate", "NombreNegocio" },
-                values: new object[] { 1, new TimeSpan(0, 8, 0, 0, 0), new TimeSpan(0, 22, 0, 0, 0), null, "TURF" });
+                values: new object[] { 1, new TimeSpan(0, 8, 0, 0, 0), new TimeSpan(0, 22, 0, 0, 0), null, "DEMO" });
 
             migrationBuilder.InsertData(
                 table: "Rol",

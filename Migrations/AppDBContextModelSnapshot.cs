@@ -128,7 +128,7 @@ namespace proj_daw_2026_backend.Migrations
                             Id = 1,
                             HoraApertura = new TimeSpan(0, 8, 0, 0, 0),
                             HoraCierre = new TimeSpan(0, 22, 0, 0, 0),
-                            NombreNegocio = "TURF"
+                            NombreNegocio = "DEMO"
                         });
                 });
 

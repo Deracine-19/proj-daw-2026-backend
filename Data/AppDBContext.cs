@@ -39,7 +39,7 @@ public class AppDBContext : DbContext
             new Configuracion
             {
                 Id = 1,
-                NombreNegocio = "TURF",
+                NombreNegocio = "DEMO",
                 HoraApertura = new TimeSpan(8, 0, 0),
                 HoraCierre = new TimeSpan(22, 0, 0)
             }
