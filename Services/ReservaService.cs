@@ -31,7 +31,7 @@ namespace proj_daw_2026_backend.Services
 
             // A diferencia del reporte de exportación, el listado paginado sí necesita un rango
             // por defecto ("hoy") para no traer la tabla completa cuando no se pide ningún filtro.
-            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            var hoy = DateOnly.FromDateTime(HoraNegocio.Ahora);
             var desde = fechaInicio ?? hoy;
             var hasta = fechaFin ?? hoy;
 
@@ -83,7 +83,7 @@ namespace proj_daw_2026_backend.Services
         // GET: Horarios ya ocupados de una cancha en una fecha (incluye horas transcurridas si es HOY)
         public async Task<List<HorarioOcupadoDto>> GetHorariosOcupadosAsync(int canchaId, DateOnly fecha)
         {
-            var hoy = DateOnly.FromDateTime(DateTime.Now);
+            var hoy = DateOnly.FromDateTime(HoraNegocio.Ahora);
             var horario = await _configuracionService.GetConfiguracionAsync();
 
             // Si se consulta un día pasado, todo el día se marca como ocupado/bloqueado
@@ -107,7 +107,7 @@ namespace proj_daw_2026_backend.Services
             // Si es la fecha actual, bloqueamos desde la hora de apertura hasta la hora actual
             if (fecha == hoy)
             {
-                var horaActual = DateTime.Now.TimeOfDay;
+                var horaActual = HoraNegocio.Ahora.TimeOfDay;
 
                 if (horaActual > horario.HoraApertura)
                 {
@@ -125,8 +125,8 @@ namespace proj_daw_2026_backend.Services
         // POST: Crear Reserva
         public async Task<ReservaReadDto> CreateReservaAsync(int usuarioId, CreateReservaDto dto)
         {
-            var hoy = DateOnly.FromDateTime(DateTime.Now);
-            var horaActual = DateTime.Now.TimeOfDay;
+            var hoy = DateOnly.FromDateTime(HoraNegocio.Ahora);
+            var horaActual = HoraNegocio.Ahora.TimeOfDay;
 
             // 1. Validaciones de Fecha y Hora Transcurridas
             if (dto.Fecha < hoy)
@@ -374,7 +374,7 @@ namespace proj_daw_2026_backend.Services
                 throw new InvalidOperationException("No se puede marcar como No-Show una reserva ya pagada.");
 
             var fechaHoraReserva = reserva.Fecha.ToDateTime(TimeOnly.FromTimeSpan(reserva.HoraEntrada));
-            if (fechaHoraReserva > DateTime.Now)
+            if (fechaHoraReserva > HoraNegocio.Ahora)
                 throw new InvalidOperationException("No se puede marcar como No-Show una reserva que todavía no ha ocurrido.");
 
             reserva.EstadoReserva = "NOSHOW";

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.Services;
 
@@ -193,7 +194,7 @@ namespace proj_daw_2026_backend.Controllers
             return csv.ToString();
         }
 
-        private static string NombreArchivo(string dato) => $"{dato}_{DateTime.Now:yyyy-MM-dd}.csv";
+        private static string NombreArchivo(string dato) => $"{dato}_{HoraNegocio.Ahora:yyyy-MM-dd}.csv";
 
         private static string FormatoFecha(DateTime? fecha) =>
             fecha.HasValue ? fecha.Value.ToString("yyyy-MM-dd HH:mm:ss") : "";

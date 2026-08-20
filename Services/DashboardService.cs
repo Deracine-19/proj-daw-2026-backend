@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using proj_daw_2026_backend.Data;
 using proj_daw_2026_backend.Data.Entities;
 using proj_daw_2026_backend.DTOs;
 
@@ -15,11 +16,12 @@ namespace proj_daw_2026_backend.Services
 
         public async Task<DashboardDto> GetDashboardAsync()
         {
-            var hoy = DateOnly.FromDateTime(DateTime.Today);
+            var ahora = HoraNegocio.Ahora;
+            var hoy = DateOnly.FromDateTime(ahora);
 
             var inicioMes = new DateOnly(
-                DateTime.Today.Year,
-                DateTime.Today.Month,
+                ahora.Year,
+                ahora.Month,
                 1
             );
 
