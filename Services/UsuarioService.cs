@@ -67,6 +67,8 @@ namespace proj_daw_2026_backend.Services
                 .FirstOrDefaultAsync(u => u.Id == id)
                 ?? throw new KeyNotFoundException("Usuario no encontrado");
 
+            await ValidarEmailDisponible(dto.Email, id);
+
             usuario.Nombre = dto.Nombre;
             usuario.Email = dto.Email;
             usuario.RolId = dto.RolId;
@@ -86,6 +88,8 @@ namespace proj_daw_2026_backend.Services
 
         public async Task<UsuarioDto> CreateUser(UsuarioCreateDto dto)
         {
+            await ValidarEmailDisponible(dto.Email);
+
             var usuario = new Usuario
             {
                 Nombre = dto.Nombre,
@@ -135,6 +139,19 @@ namespace proj_daw_2026_backend.Services
             await _context.SaveChangesAsync();
 
             return usuario.Adapt<UsuarioDto>();
+        }
+
+        // Estos endpoints son solo de Administrador, así que aquí sí decimos explícitamente que el
+        // correo está en uso (a diferencia del registro público en AuthService, que es genérico).
+        // Sin distinguir mayúsculas porque Postgres compara texto de forma sensible a mayúsculas.
+        private async Task ValidarEmailDisponible(string email, int? excluirId = null)
+        {
+            var emailNormalizado = email.Trim().ToLower();
+            bool enUso = await _context.Usuarios.AnyAsync(u =>
+                u.Email.ToLower() == emailNormalizado && (excluirId == null || u.Id != excluirId));
+
+            if (enUso)
+                throw new InvalidOperationException("Ya existe un usuario con ese correo electrónico.");
         }
 
         // Construye la consulta filtrada (búsqueda/rol/activo/orden) SIN paginar — la comparten

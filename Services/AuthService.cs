@@ -36,12 +36,22 @@ namespace proj_daw_2026_backend.Services
 
         public async Task<Usuario> Register(RegisterDto dto)
         {
+            // Comparación sin distinguir mayúsculas: Postgres compara texto de forma sensible a
+            // mayúsculas, así que sin ToLower() "Juan@x.com" y "juan@x.com" serían cuentas distintas.
+            var emailNormalizado = dto.Email.Trim().ToLower();
+            if (await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == emailNormalizado))
+            {
+                // Mensaje genérico a propósito (OWASP, igual que forgot-password): no confirmamos
+                // que el correo ya está registrado para no permitir enumerar cuentas.
+                throw new InvalidOperationException("No se pudo completar el registro. Verifica tus datos o intenta con otro correo.");
+            }
+
             var hashPassword = HashPassword(dto.Password);
 
             var nuevoUsuario = new Usuario
             {
                 Nombre = dto.Nombre,
-                Email = dto.Email,
+                Email = dto.Email.Trim(),
                 PasswordHash = hashPassword,
                 RolId = 1 // Clientes por defecto
             };

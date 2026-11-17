@@ -95,8 +95,15 @@ namespace proj_daw_2026_backend.Controllers
         [Authorize(Roles = RolesConstantes.Administrador)]
         public async Task<ActionResult<UsuarioDto>> Create([FromBody] UsuarioCreateDto dto)
         {
-            var usuario = await _usuarioService.CreateUser(dto);
-            return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
+            try
+            {
+                var usuario = await _usuarioService.CreateUser(dto);
+                return CreatedAtAction(nameof(GetById), new { id = usuario.Id }, usuario);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
         }
 
         // PATCH: api/usuarios/5/estado (Solo Administrador)

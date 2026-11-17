@@ -19,15 +19,22 @@ namespace proj_daw_2026_backend.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<RegisterResponseDto>> Register([FromBody] RegisterDto dto)
         {
-            var usuario = await _authService.Register(dto);
-
-            var respuesta = new RegisterResponseDto
+            try
             {
-                Id = usuario.Id,
-                Email = usuario.Email
-            };
+                var usuario = await _authService.Register(dto);
 
-            return Created("", respuesta);
+                var respuesta = new RegisterResponseDto
+                {
+                    Id = usuario.Id,
+                    Email = usuario.Email
+                };
+
+                return Created("", respuesta);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
         }
 
         // POST: api/auth/login
