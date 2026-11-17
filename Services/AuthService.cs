@@ -113,16 +113,8 @@ namespace proj_daw_2026_backend.Services
             await _context.SaveChangesAsync();
 
             // Enviar correo electrónico con la clave temporal
-            string mensajeHtml = $@"
-                <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
-                    <h2 style='color: #2c3e50; text-align: center;'>Recuperación de Contraseña 🔑</h2>
-                    <p>Hola <strong>{usuario.Nombre}</strong>,</p>
-                    <p>Has solicitado restablecer tu contraseña. Tu clave temporal de acceso es:</p>
-                    <div style='text-align: center; margin: 20px 0;'>
-                        <span style='background-color: #f8f9fa; border: 1px dashed #2980b9; padding: 10px 20px; font-size: 22px; font-weight: bold; color: #2980b9;'>{tempPassword}</span>
-                    </div>
-                    <p style='color: #e74c3c;'><strong>Nota:</strong> Deberás ingresar esta clave e inmediatamente registrar una nueva contraseña.</p>
-                </div>";
+            var nombreNegocio = (await _context.Configuraciones.FirstOrDefaultAsync())?.NombreNegocio ?? string.Empty;
+            string mensajeHtml = EmailTemplates.ClaveTemporal(nombreNegocio, usuario.Nombre, tempPassword);
 
             // Igual que en ReservaService: sin este try/catch, un fallo al enviar el correo desaparece en
             // silencio dentro del Task.Run desatendido y nunca se sabría por qué no llegó el correo.

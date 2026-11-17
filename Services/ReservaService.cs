@@ -232,33 +232,17 @@ namespace proj_daw_2026_backend.Services
             var usuario = await _context.Usuarios.FindAsync(usuarioId);
             if (usuario != null && !string.IsNullOrEmpty(usuario.Email))
             {
-                string articulosHtml = "";
-                if (reservaArticulos.Any())
+                var articulos = new List<EmailTemplates.ArticuloLinea>();
+                foreach (var item in reservaArticulos)
                 {
-                    articulosHtml = "<h3>Artículos Alquilados:</h3><ul>";
-                    foreach (var item in reservaArticulos)
-                    {
-                        var art = await _context.Articulos.FindAsync(item.ArticuloId);
-                        articulosHtml += $"<li><strong>{art?.Nombre ?? "Artículo"}</strong> x{item.Cantidad} - L {item.PrecioUnitario * item.Cantidad:N2}</li>";
-                    }
-                    articulosHtml += "</ul>";
+                    var art = await _context.Articulos.FindAsync(item.ArticuloId);
+                    articulos.Add(new(art?.Nombre ?? "Artículo", item.Cantidad, item.PrecioUnitario * item.Cantidad));
                 }
 
-                string mensajeHtml = $@"
-                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
-                        <h2 style='color: #2c3e50; text-align: center;'>¡Reserva Confirmada! ⚽</h2>
-                        <p>Hola <strong>{usuario.Nombre}</strong>,</p>
-                        <p>Tu reserva ha sido registrada exitosamente. A continuación se muestra el detalle de tu solicitud:</p>
-                        <hr style='border: none; border-top: 1px solid #eee;' />
-                        <p><strong>Código de Reserva:</strong> <span style='font-size: 18px; color: #27ae60; font-weight: bold;'>{reserva.CodigoReserva}</span></p>
-                        <p><strong>Cancha:</strong> {cancha.Nombre}</p>
-                        <p><strong>Fecha:</strong> {reserva.Fecha:dd/MM/yyyy}</p>
-                        <p><strong>Horario:</strong> {reserva.HoraEntrada:hh\:mm} - {reserva.HoraSalida:hh\:mm}</p>
-                        {articulosHtml}
-                        <hr style='border: none; border-top: 1px solid #eee;' />
-                        <h3 style='color: #2c3e50;'>Total a Pagar: L {reserva.Total:N2}</h3>
-                        <p style='font-size: 12px; color: #7f8c8d; text-align: center; margin-top: 20px;'>¡Gracias por confiar en nuestros servicios!</p>
-                    </div>";
+                var nombreNegocio = (await _context.Configuraciones.FirstOrDefaultAsync())?.NombreNegocio ?? string.Empty;
+                string mensajeHtml = EmailTemplates.ReservaConfirmada(
+                    nombreNegocio, usuario.Nombre, reserva.CodigoReserva, cancha.Nombre,
+                    reserva.Fecha, reserva.HoraEntrada, reserva.HoraSalida, articulos, reserva.Total);
 
                 var destinatario = usuario.Email;
                 var asunto = $"Confirmación de Reserva #{reserva.CodigoReserva}";
