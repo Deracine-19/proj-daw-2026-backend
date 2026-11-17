@@ -99,7 +99,7 @@ namespace proj_daw_2026_backend.Services
             string tempPassword = Guid.NewGuid().ToString("N").Substring(0, 12);
 
             // SOLO EN DEVELOPMENT: imprime la clave en la consola del backend para poder probar
-            // el flujo sin depender de que el SMTP esté configurado/accesible. Nunca se ejecuta
+            // el flujo sin depender de que el envío de correos esté configurado. Nunca se ejecuta
             // en Production porque queda condicionado a IsDevelopment().
             if (_env.IsDevelopment())
             {
@@ -124,7 +124,7 @@ namespace proj_daw_2026_backend.Services
                     <p style='color: #e74c3c;'><strong>Nota:</strong> Deberás ingresar esta clave e inmediatamente registrar una nueva contraseña.</p>
                 </div>";
 
-            // Igual que en ReservaService: sin este try/catch, un fallo de SMTP desaparece en
+            // Igual que en ReservaService: sin este try/catch, un fallo al enviar el correo desaparece en
             // silencio dentro del Task.Run desatendido y nunca se sabría por qué no llegó el correo.
             var destinatario = usuario.Email;
             _ = Task.Run(async () =>
