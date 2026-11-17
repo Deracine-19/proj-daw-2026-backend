@@ -111,6 +111,10 @@ namespace proj_daw_2026_backend.Controllers
             {
                 return Forbid();
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
         }
 
         // PATCH: api/reserva/{id}/pagar (Administrador y Operador)

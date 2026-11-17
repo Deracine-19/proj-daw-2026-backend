@@ -17,4 +17,8 @@ public static class HoraNegocio
     private static readonly TimeSpan Offset = TimeSpan.FromHours(-6);
 
     public static DateTime Ahora => DateTime.UtcNow + Offset;
+
+    // Convierte una fecha/hora de Honduras (como Reserva.Fecha + HoraEntrada) al instante UTC real.
+    public static DateTime AUtc(DateOnly fecha, TimeSpan hora) =>
+        DateTime.SpecifyKind(fecha.ToDateTime(TimeOnly.MinValue) + hora - Offset, DateTimeKind.Utc);
 }

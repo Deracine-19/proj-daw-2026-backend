@@ -48,6 +48,9 @@ namespace proj_daw_2026_backend.DTOs
         public bool EstadoPago { get; set; }
         public decimal PrecioAplicado { get; set; }
         public decimal Total { get; set; }
+        // Hasta cuándo (UTC) el cliente puede cancelarla; null si ya no puede (cancelada, pagada,
+        // comenzada o fuera del plazo de 24 h). El backend vuelve a validar al cancelar.
+        public DateTime? CancelableHasta { get; set; }
         public List<ReservaArticuloReadDto> Articulos { get; set; } = new();
     }
 

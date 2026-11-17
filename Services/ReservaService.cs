@@ -273,10 +273,48 @@ namespace proj_daw_2026_backend.Services
                 throw new UnauthorizedAccessException("No tienes permiso para cancelar esta reserva.");
             }
 
+            // El administrador puede cancelar siempre; el cliente solo dentro del plazo.
+            if (!esAdmin)
+            {
+                var motivo = MotivoNoCancelable(reserva);
+                if (motivo != null) throw new InvalidOperationException(motivo);
+            }
+
             reserva.EstadoReserva = "CANCELADA";
             reserva.LastEditedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // El cliente puede cancelar su reserva solo durante las primeras 24 horas desde que la creó.
+        private static readonly TimeSpan PlazoCancelacionCliente = TimeSpan.FromHours(24);
+
+        // Instante (UTC) hasta el que el cliente puede cancelar: 24 h desde la creación, pero nunca
+        // después de que la reserva empiece (si reservó para dentro de 2 horas, el límite es ese).
+        private static DateTime LimiteCancelacionUtc(Reserva r)
+        {
+            var porPlazo = DateTime.SpecifyKind(r.CreatedDate, DateTimeKind.Utc) + PlazoCancelacionCliente;
+            var inicio = HoraNegocio.AUtc(r.Fecha, r.HoraEntrada);
+            return porPlazo < inicio ? porPlazo : inicio;
+        }
+
+        // null = el cliente puede cancelarla; si no, el motivo para mostrarle.
+        private static string? MotivoNoCancelable(Reserva r)
+        {
+            if (r.EstadoReserva != "CONFIRMADA")
+                return "Solo se pueden cancelar reservas confirmadas.";
+
+            // Una reserva pagada implica un reembolso, así que eso lo gestiona el negocio.
+            if (r.EstadoPago)
+                return "Esta reserva ya está pagada. Comunícate con el negocio para cancelarla.";
+
+            if (DateTime.UtcNow >= HoraNegocio.AUtc(r.Fecha, r.HoraEntrada))
+                return "La reserva ya comenzó, no se puede cancelar.";
+
+            if (DateTime.UtcNow >= LimiteCancelacionUtc(r))
+                return "El plazo para cancelar venció. Las reservas solo se pueden cancelar durante las 24 horas siguientes a su creación.";
+
+            return null;
         }
 
         private static ReservaReadDto MapToReadDto(Reserva r)
@@ -296,6 +334,7 @@ namespace proj_daw_2026_backend.Services
                 EstadoPago = r.EstadoPago,
                 PrecioAplicado = r.PrecioAplicado,
                 Total = r.Total,
+                CancelableHasta = MotivoNoCancelable(r) == null ? LimiteCancelacionUtc(r) : null,
                 Articulos = r.ReservaArticulos?.Select(ra => new ReservaArticuloReadDto
                 {
                     ArticuloId = ra.ArticuloId,
